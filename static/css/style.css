@@ -1,18 +1,19 @@
 /* General Reset */
-body, h1, h2, h3, p, ul, ol, li {
+* {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
-/* Body Styling */
-body {
+/* Body and HTML for Sticky Footer */
+html, body {
     font-family: Arial, sans-serif;
     line-height: 1.6;
     background-color: #f4f4f9;
     color: #333;
-    margin: 0;
-    padding: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Header */
@@ -20,32 +21,45 @@ header {
     background-color: #333;
     color: #fff;
     padding: 1rem 0;
-    text-align: center;
 }
 
-header nav ul {
+header .navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 1rem;
+}
+
+header .navbar-brand {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: white;
+    text-decoration: none;
+}
+
+header .navbar-toggler {
+    display: none;
+}
+
+header .navbar-menu {
     list-style: none;
     display: flex;
-    justify-content: center;
-    padding: 0;
+    gap: 1rem;
 }
 
-header nav ul li {
-    margin: 0 15px;
-}
-
-header nav ul li a {
-    color: #fff;
+header .navbar-menu li a {
+    color: white;
     text-decoration: none;
-    font-size: 1.2rem;
+    font-size: 1rem;
 }
 
-header nav ul li a:hover {
+header .navbar-menu li a:hover {
     text-decoration: underline;
 }
 
 /* Main Content */
 main {
+    flex: 1;
     padding: 2rem;
     text-align: center;
 }
@@ -56,7 +70,7 @@ footer {
     color: #fff;
     text-align: center;
     padding: 1rem 0;
-    margin-top: 2rem;
+    margin-top: auto;
 }
 
 footer p {

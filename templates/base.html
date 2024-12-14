@@ -1,36 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    {% load static %}
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{% block title %}My Django Site{% endblock %}</title>
-    <!-- Static Files -->
     <link rel="stylesheet" href="{% static 'css/style.css' %}" />
-    <!-- CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token }}" />
   </head>
   <body>
     <header>
-      <nav>
-        <ul>
+      <nav class="navbar">
+        <a class="navbar-brand" href="{% url 'home' %}">CertifyTrack</a>
+        <button class="navbar-toggler" type="button" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <ul class="navbar-menu">
           <li><a href="{% url 'home' %}">Home</a></li>
-          <li><a href="{% url 'about' %}">About</a></li>
-          <li><a href="{% url 'contact' %}">Contact</a></li>
+          <li><a href="#">About</a></li>
+          <li><a href="#">Contact</a></li>
+          <li><a href="#">Profile</a></li>
         </ul>
       </nav>
     </header>
-
     <main>
       {% block content %}
-      <!-- Page-specific content goes here -->
       {% endblock %}
     </main>
-
     <footer>
-      <p>&copy; 2024 My Django Site. All rights reserved.</p>
+      <p>&copy; 2024 CertifyTrack Site. All rights reserved.</p>
     </footer>
-
-    <!-- JavaScript -->
-    <script src="{% static 'js/script.js' %}"></script>
   </body>
 </html>
