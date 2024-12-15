@@ -9,24 +9,51 @@
     <meta name="csrf-token" content="{{ csrf_token }}" />
   </head>
   <body>
+    {% if messages %}
+    <ul class="messages">
+      {% for message in messages %}
+      <li class="message {{ message.tags }}">{{ message }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    <script>
+      // Automatically hide messages after 5 seconds
+      setTimeout(() => {
+        const messages = document.querySelectorAll(".messages .message");
+        messages.forEach((message) => {
+          message.style.transition = "opacity 0.5s ease";
+          message.style.opacity = "0";
+          setTimeout(() => message.remove(), 500); // Remove from DOM after fade out
+        });
+      }, 5000);
+    </script>
     <header>
       <nav class="navbar">
         <a class="navbar-brand" href="{% url 'home' %}">CertifyTrack</a>
-        <button class="navbar-toggler" type="button" aria-label="Toggle navigation">
+        <button
+          class="navbar-toggler"
+          type="button"
+          aria-label="Toggle navigation"
+        >
           <span class="navbar-toggler-icon"></span>
         </button>
         <ul class="navbar-menu">
           <li><a href="{% url 'home' %}">Home</a></li>
-          <li><a href="#">About</a></li>
-          <li><a href="#">Contact</a></li>
-          <li><a href="#">Profile</a></li>
+          <li><a href="{% url 'login' %}">Login</a></li>
+          <li><a href="{% url 'signup' %}">Sign Up</a></li>
+          {% if user.is_authenticated %} {% if user.profile.role == 'student' %}
+          <li><a href="{% url 'student_dashboard' %}">Dashboard</a></li>
+          {% elif user.profile.role == 'club' %}
+          <li><a href="{% url 'club_dashboard' %}">Dashboard</a></li>
+          {% elif user.profile.role == 'mentor' %}
+          <li><a href="{% url 'mentor_dashboard' %}">Dashboard</a></li>
+          {% endif %}
+          <li><a href="{% url 'logout' %}">Logout</a></li>
+          {% endif %}
         </ul>
       </nav>
     </header>
-    <main>
-      {% block content %}
-      {% endblock %}
-    </main>
+    <main>{% block content %} {% endblock %}</main>
     <footer>
       <p>&copy; 2024 CertifyTrack Site. All rights reserved.</p>
     </footer>
