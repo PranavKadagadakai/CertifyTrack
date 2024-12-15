@@ -39,8 +39,6 @@
         </button>
         <ul class="navbar-menu">
           <li><a href="{% url 'home' %}">Home</a></li>
-          <li><a href="{% url 'login' %}">Login</a></li>
-          <li><a href="{% url 'signup' %}">Sign Up</a></li>
           {% if user.is_authenticated %} {% if user.profile.role == 'student' %}
           <li><a href="{% url 'student_dashboard' %}">Dashboard</a></li>
           {% elif user.profile.role == 'club' %}
@@ -49,6 +47,9 @@
           <li><a href="{% url 'mentor_dashboard' %}">Dashboard</a></li>
           {% endif %}
           <li><a href="{% url 'logout' %}">Logout</a></li>
+          {% else %}
+          <li><a href="{% url 'login' %}">Login</a></li>
+          <li><a href="{% url 'signup' %}">Sign Up</a></li>
           {% endif %}
         </ul>
       </nav>
