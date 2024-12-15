@@ -1,16 +1,26 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Profile</title>
-</head>
-<body>
-    <p>
-        <h2>
-            this is profile page
-         
-        </h2>
-    </p>
-</body>
-</html>
+
+{% extends 'base.html' %}
+{% block title %}Profile{% endblock %}
+{% block content %}
+<section class="profile-section">
+    <div class="container">
+        <h2>Profile Page</h2>
+        {% if user.is_authenticated %}
+        <p>Welcome, {{ user.username }}!</p>
+        <p>Here are your details:</p>
+        <ul>
+            <li>Email: {{ user.email }}</li>
+            <li>First Name: {{ user.first_name }}</li>
+            <li>Last Name: {{ user.last_name }}</li>
+        </ul>
+        <a href="{% url 'edit_profile' %}" class="btn btn-primary">Edit Profile</a>
+        {% else %}
+        <p>
+            You are not logged in. Please <a href="{% url 'login' %}">log in</a> to
+            view your profile details.
+        </p>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}
+
