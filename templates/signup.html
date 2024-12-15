@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}Sign Up{% endblock %}
+
+{% block content %}
+<section class="signup-section">
+    <div class="container">
+        <h2>Sign Up</h2>
+        <form method="POST">
+            {% csrf_token %}
+            <div>
+                <label for="username">Username</label>
+                <input type="text" name="username" id="username" required>
+            </div>
+            <div>
+                <label for="email">Email</label>
+                <input type="email" name="email" id="email" required>
+            </div>
+            <div>
+                <label for="password1">Password</label>
+                <input type="password" name="password1" id="password1" required>
+            </div>
+            <div>
+                <label for="password2">Confirm Password</label>
+                <input type="password" name="password2" id="password2" required>
+            </div>
+            <div>
+                <label for="role">Role</label>
+                <select name="role" id="role">
+                    <option value="student">Student</option>
+                    <option value="club">Club</option>
+                    <option value="mentor">Mentor</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Sign Up</button>
+        </form>
+    </div>
+</section>
+{% endblock %}
