@@ -1,10 +1,15 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.models import User
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 import re
+from Cert.models import Profile
+
+def custom_logout_view(request):
+    logout(request)
+    return redirect('home')  # Redirect to 'home' or another appropriate page
 
 # Create your views here.
 def home(request):
@@ -35,28 +40,24 @@ def login_view(request):
         # Authenticate user
         user = authenticate(request, username=username, password=password)
         if user is not None:
-            login(request, user)
+            # Ensure the user has a profile
+            Profile.objects.get_or_create(user=user)
 
-            # Check and redirect based on role
-            try:
-                role = user.profile.role
-                if role == 'student':
-                    messages.success(request, "Welcome, Student!")
-                    return redirect('student_dashboard')
-                elif role == 'club':
-                    messages.success(request, "Welcome, Club Member!")
-                    return redirect('club_dashboard')
-                elif role == 'mentor':
-                    messages.success(request, "Welcome, Mentor!")
-                    return redirect('mentor_dashboard')
-            except AttributeError:
-                messages.error(request, "User role not defined. Please contact admin.")
-                return redirect('login')
+            login(request, user)
+            # Redirect to appropriate dashboard based on role
+            role = getattr(user.profile, 'role', None)
+            if role == 'student':
+                return redirect('student_dashboard')
+            elif role == 'club':
+                return redirect('club_dashboard')
+            elif role == 'mentor':
+                return redirect('mentor_dashboard')
         else:
-            messages.error(request, "Invalid credentials. Please try again.")
+            messages.error(request, "Invalid credentials.")
             return render(request, 'login.html')
 
     return render(request, 'login.html')
+
 
 def signup_view(request):
     if request.method == 'POST':
