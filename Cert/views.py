@@ -21,6 +21,10 @@ def landingpage(request):
 def profile(request):
     return render(request, 'profile.html')
 
+
+def signup(request):
+    return render(request, 'signup.html')
+
 def validate_email_domain(email, role):
     """
     Validate the email domain based on the role:
@@ -114,3 +118,4 @@ def club_dashboard(request):
 @login_required
 def mentor_dashboard(request):
     return render(request, 'mentor_dashboard.html')
+

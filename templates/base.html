@@ -39,6 +39,11 @@
         </button>
         <ul class="navbar-menu">
           <li><a href="{% url 'home' %}">Home</a></li>
+
+          <li><a href="#">About</a></li>
+          <li><a href="#">Contact</a></li>
+          <li><a href="{% url 'profile' %}">Profile</a></li>
+
           {% if user.is_authenticated %} {% if user.profile.role == 'student' %}
           <li><a href="{% url 'student_dashboard' %}">Dashboard</a></li>
           {% elif user.profile.role == 'club' %}
