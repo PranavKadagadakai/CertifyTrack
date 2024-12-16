@@ -11,7 +11,7 @@ sign_in_btn.addEventListener("click", () => {
   container.classList.remove("sign-up-mode");
 });
 
-// Captcha functionality for both forms
+
 var allValue = [
   'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
   'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '1', '2', '3', '4', '5', 
@@ -56,12 +56,12 @@ submitBtnSignIn.addEventListener("click", () => {
   }
 });
 
-// Validate Sign Up captcha
+
 submitBtnSignUp.addEventListener("click", () => {
   const inputValue = inputCaptchaSignUp.value;
   if (inputValue === currentCaptchaSignUp) {
     alert("Sign Up Successful");
-    // Add your form submission logic here
+ 
     document.querySelector("#signUpForm").submit();
   } else if (inputValue === "") {
     alert("Invalid Captcha: Field is Empty");
