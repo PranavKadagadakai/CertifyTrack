@@ -4,14 +4,9 @@ from Cert import views
 
 urlpatterns = [
     path('', views.home, name='home'),
-# <<<<<<< HEAD
-#     path('landingpage', views.landingpage, name='landingpage'),
-#     path('profile', views.profile, name='profile'),
-#     path('signup', views.signup, name='signup')
-
     path('landingpage/', views.landingpage, name='landingpage'),
     path('profile/', views.profile, name='profile'),
-
+    path('edit_profile/', views.edit_profile, name='edit_profile'),
     
     # Authentication URLs
     path('login/', views.login_view, name='login'),
