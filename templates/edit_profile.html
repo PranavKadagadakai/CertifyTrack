@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}Edit Profile{% endblock %}
+{% block content %}
+<section class="edit-profile-section">
+    <div class="container">
+        <h2>Edit Profile</h2>
+        <form method="POST" action="">
+            {% csrf_token %}
+            <label for="first_name">First Name:</label>
+            <input type="text" id="first_name" name="first_name" value="{{ user.first_name }}" />
+
+            <label for="last_name">Last Name:</label>
+            <input type="text" id="last_name" name="last_name" value="{{ user.last_name }}" />
+
+            <label for="phone">Phone:</label>
+            <input type="phone" id="phone" name="phone" value="{{ profile.phone }}" />
+
+            <label for="address">Address:</label>
+            <textarea id="address" name="address">{{ profile.address }}</textarea>
+
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+        </form>
+    </div>
+</section>
+{% endblock %}
