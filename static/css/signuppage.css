@@ -63,6 +63,7 @@ form.sign-up-form {
   display: grid;
   grid-template-columns: 15% 85%;
   padding: 0 0.4rem;
+  position: relative;
 }
 
 .input-field i {
@@ -86,6 +87,34 @@ form.sign-up-form {
   font-weight: 500;
 }
 
+/* Style the dropdown to match input fields */
+.input-field select.input-select {
+  width: 100%;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 55px;
+  font-size: 1.1rem;
+  background-color: #f0f0f0;
+  color: #333;
+  outline: none;
+  box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+  appearance: none;
+  /* Removes default browser styling */
+  cursor: pointer;
+}
+
+/* Dropdown arrow styling */
+.input-field select.input-select::-ms-expand {
+  display: none;
+  /* Removes dropdown icon for IE */
+}
+
+.input-field select.input-select:focus {
+  background-color: #e6e7eb;
+  box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+/* Social section */
 .social-text {
   padding: 0.7rem 0;
   font-size: 1rem;
@@ -117,6 +146,7 @@ form.sign-up-form {
   border-color: #4481eb;
 }
 
+/* Buttons */
 .btn {
   width: 150px;
   background-color: #5995fd;
@@ -185,6 +215,7 @@ form.sign-up-form {
   margin-top: 20px;
 }
 
+/* Responsive adjustments */
 @media (max-width: 870px) {
   .container {
     grid-template-columns: 1fr;
