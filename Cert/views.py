@@ -25,7 +25,6 @@ def edit_profile(request):
 
     return render(request, 'edit_profile.html', {'profile': profile})
 
-
 @login_required
 def profile(request):
     """
@@ -38,11 +37,46 @@ def custom_logout_view(request):
     logout(request)
     return redirect('home')  # Redirect to 'home' or another appropriate page
 
-# Create your views here.
 def home(request):
-    return render(request, 'landingpage.html')
+    """
+    Redirects the user to the appropriate page based on their authentication status and role.
+    """
+    if not request.user.is_authenticated:
+        # Redirect to landing page if the user is not logged in
+        return redirect('landingpage')
+
+    # Redirect to the respective dashboard based on role
+    role = getattr(request.user.profile, 'role', None)
+    if role == 'student':
+        return redirect('student_dashboard')
+    elif role == 'club':
+        return redirect('club_dashboard')
+    elif role == 'mentor':
+        return redirect('mentor_dashboard')
+
+    # Default to landing page if no role is assigned
+    messages.error(request, "Your account is not properly configured. Please contact support.")
+    return redirect('landingpage')
 
 def landingpage(request):
+    """
+    Redirects unauthenticated users to the login page by default and allows access to the signup page.
+    Authenticated users are redirected to their respective dashboards.
+    """
+    if request.user.is_authenticated:
+        # Redirect to the respective dashboard based on role
+        role = getattr(request.user.profile, 'role', None)
+        if role == 'student':
+            return redirect('student_dashboard')
+        elif role == 'club':
+            return redirect('club_dashboard')
+        elif role == 'mentor':
+            return redirect('mentor_dashboard')
+        else:
+            messages.error(request, "Your account is not properly configured. Please contact support.")
+            return redirect('home')
+
+    # Render landing page if the user is not authenticated
     return render(request, 'landingpage.html')
 
 def profile(request):

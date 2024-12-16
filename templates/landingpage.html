@@ -1,15 +1,23 @@
 {% extends 'base.html' %}
-{% block title %}Home Page{% endblock %}
+{% block title %}Landing Page{% endblock %}
 {% block content %}
-<section class="home-section">
+<section class="landing-section">
     <div class="container">
         <h1>Welcome to CertifyTrack</h1>
-        <p>
-            Your one-stop solution for managing AICTE activity points and
-            certificates.
-        </p>
-        <a href="{% url 'login' %}" class="btn btn-primary">Log In</a>
-        <a href="{% url 'signup' %}" class="btn btn-secondary">Sign Up</a>
+        {% if not user.is_authenticated %}
+        <p>Please log in or sign up to access your dashboard.</p>
+        <div class="auth-buttons">
+            <a href="{% url 'login' %}" class="btn btn-primary">Log In</a>
+            <a href="{% url 'signup' %}" class="btn btn-secondary">Sign Up</a>
+        </div>
+        {% else %}
+        <p>You are already logged in. Redirecting to your dashboard...</p>
+        <script>
+            setTimeout(() => {
+                window.location.href = "{% url 'home' %}";
+            }, 2000); // Redirect after 2 seconds
+        </script>
+        {% endif %}
     </div>
 </section>
 {% endblock %}
