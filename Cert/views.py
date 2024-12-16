@@ -7,6 +7,33 @@ from django.core.exceptions import ValidationError
 import re
 from Cert.models import Profile
 
+@login_required
+def edit_profile(request):
+    profile = Profile.objects.get(user=request.user)
+    if request.method == 'POST':
+        # Update profile details from the form
+        user = request.user
+        user.first_name = request.POST.get('first_name', user.first_name)
+        user.last_name = request.POST.get('last_name', user.last_name)
+        profile.phone = request.POST.get('phone', profile.phone)
+        profile.address = request.POST.get('address', profile.address)
+
+        user.save()
+        profile.save()
+
+        return redirect('profile')
+
+    return render(request, 'edit_profile.html', {'profile': profile})
+
+
+@login_required
+def profile(request):
+    """
+    Display the user's profile details.
+    """
+    profile = Profile.objects.get(user=request.user)
+    return render(request, 'profile.html', {'profile': profile})
+
 def custom_logout_view(request):
     logout(request)
     return redirect('home')  # Redirect to 'home' or another appropriate page
@@ -21,9 +48,6 @@ def landingpage(request):
 def profile(request):
     return render(request, 'profile.html')
 
-
-def signup(request):
-    return render(request, 'signup.html')
 
 def validate_email_domain(email, role):
     """
