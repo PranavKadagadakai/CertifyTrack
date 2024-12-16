@@ -1,19 +1,69 @@
 {% extends 'base.html' %} {% block title %}Login{% endblock %} {% block content %}
-<section class="login-section">
-    <div class="container">
-        <h2>Login</h2>
-        <form method="POST">
-            {% csrf_token %}
-            <div>
-                <label for="username">Username</label>
-                <input type="text" name="username" id="username" required />
-            </div>
-            <div>
-                <label for="password">Password</label>
-                <input type="password" name="password" id="password" required />
-            </div>
-            <button type="submit" class="btn btn-primary">Login</button>
-        </form>
+{% load static %}
+<script
+src="https://kit.fontawesome.com/64d58efce2.js"
+crossorigin="anonymous"
+></script>
+<link rel="stylesheet" href="{% static 'css/signup.css' %}" />
+<title>Login</title>
+</head>
+<body>
+<div class="container">
+<div class="forms-container">
+  <div class="signin-signup">
+    
+    <form action="#" class="sign-in-form" id="signInForm">
+      <h2 class="title">Sign in</h2>
+      <div class="input-field">
+        <i class="fas fa-user"></i>
+        <input type="text" placeholder="Username" />
+      </div>
+      <div class="input-field">
+        <i class="fas fa-lock"></i>
+        <input type="password" placeholder="Password" />
+      </div>
+      <div class="captcha">
+        <div id="captchaValueSignIn">AAAAAA</div>
+        <input id="inputCaptchaSignIn" type="text" placeholder="Captcha" />
+      </div>
+      <input type="button" value="Login" class="btn solid" id="submitBtnSignIn" />
+      <p class="social-text">Or Sign in with social platforms</p>
+      <div class="social-media">
+        <a href="#" class="social-icon">
+          <i class="fab fa-facebook-f"></i>
+        </a>
+        <a href="#" class="social-icon">
+          <i class="fab fa-twitter"></i>
+        </a>
+        <a href="#" class="social-icon">
+          <i class="fab fa-google"></i>
+        </a>
+        <a href="#" class="social-icon">
+          <i class="fab fa-linkedin-in"></i>
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="panels-container">
+  <div class="panel left-panel">
+    <div class="content">
+      <h3>New here ?</h3>
+      <p>
+        Lorem ipsum dolor sit amet consectetur adipisicing elit. Debitis,
+        ex ratione. Aliquid!
+      </p>
+      <a href="{% url 'signup' %}">
+        <button class="btn transparent" id="sign-up-btn">
+          Sign up
+        </button>
+      </a>
     </div>
-</section>
+    <img src="{% static 'images/log.svg' %}" class="image" alt="Log Image" />
+  </div>
+</div>
+</div>
+
+<script src="{% static 'js/app.js' %}"></script>
 {% endblock %}
