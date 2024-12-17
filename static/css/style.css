@@ -6,7 +6,8 @@
 }
 
 /* Body and HTML for Sticky Footer */
-html, body {
+html,
+body {
     font-family: Arial, sans-serif;
     line-height: 1.6;
     background-color: #f4f4f9;
@@ -75,4 +76,32 @@ footer {
 
 footer p {
     margin: 0;
+}
+
+.dashboard-section {
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    margin: 20px 0;
+}
+
+.dashboard-actions {
+    margin-bottom: 20px;
+}
+
+.event-list ul {
+    list-style: none;
+    padding: 0;
+}
+
+.event-list li {
+    margin-bottom: 15px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #fff;
+}
+
+.event-list a.btn {
+    margin-right: 10px;
 }
