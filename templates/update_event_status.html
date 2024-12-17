@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block title %}Update Event Status{% endblock %}
+
+{% block content %}
+<section class="update-status-section">
+    <div class="container">
+        <h2>Update Status for {{ event.name }}</h2>
+        <form method="POST">
+            {% csrf_token %}
+            <label for="status">Select Event Status:</label>
+            <select name="status" id="status" required>
+                <option value="not_started" {% if event.status == 'not_started' %}selected{% endif %}>Not Started</option>
+                <option value="started" {% if event.status == 'started' %}selected{% endif %}>Started</option>
+                <option value="finished" {% if event.status == 'finished' %}selected{% endif %}>Finished</option>
+            </select>
+            <button type="submit" class="btn btn-primary">Update Status</button>
+        </form>
+    </div>
+</section>
+{% endblock %}
