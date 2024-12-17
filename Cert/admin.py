@@ -1,3 +1,27 @@
 from django.contrib import admin
+from .models import Club, Profile, CertificateTemplate, Event, Certificate
 
-# Register your models here.
+@admin.register(Club)
+class ClubAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name', 'admin', 'created_at')
+    search_fields = ('name', 'admin__username')
+
+@admin.register(Profile)
+class ProfileAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'role', 'phone')
+    search_fields = ('user__username', 'role')
+
+@admin.register(Event)
+class EventAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name', 'club', 'status', 'date', 'created_at')
+    search_fields = ('name', 'club__name')
+
+@admin.register(CertificateTemplate)
+class CertificateTemplateAdmin(admin.ModelAdmin):
+    list_display = ('id', 'event', 'uploaded_at')
+    search_fields = ('event__name',)
+
+@admin.register(Certificate)
+class CertificateAdmin(admin.ModelAdmin):
+    list_display = ('id', 'event', 'student', 'generated_at')
+    search_fields = ('event__name', 'student__username')

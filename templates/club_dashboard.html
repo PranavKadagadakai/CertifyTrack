@@ -7,6 +7,31 @@
     <div class="container">
         <h2>Welcome, {{ user.username }}!</h2>
         <p>Manage events and generate certificates here.</p>
+
+        <!-- Section to Create a New Event -->
+        <div class="dashboard-actions">
+            <h3>Actions</h3>
+            <a href="{% url 'create_event' %}" class="btn btn-primary">Create New Event</a>
+        </div>
+
+        <!-- Section to Display Created Events -->
+        <div class="event-list">
+            <h3>Your Events</h3>
+            {% if events %}
+                <ul>
+                    {% for event in events %}
+                        <li>
+                            <strong>{{ event.name }}</strong> ({{ event.date }}) 
+                            <p>{{ event.description }}</p>
+                            <a href="{% url 'upload_participants' event.id %}" class="btn btn-secondary">Upload Participants</a>
+                            <a href="{% url 'generate_certificates' event.id %}" class="btn btn-success">Generate Certificates</a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>No events found. Create one to get started!</p>
+            {% endif %}
+        </div>
     </div>
 </section>
 {% endblock %}
