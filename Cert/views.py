@@ -41,14 +41,14 @@ def login_view(request):
         username = request.POST.get('username')
         password = request.POST.get('password')
 
-        # Authenticate user
+        
         user = authenticate(request, username=username, password=password)
         if user is not None:
-            # Ensure the user has a profile
+            
             Profile.objects.get_or_create(user=user)
 
             login(request, user)
-            # Redirect to appropriate dashboard based on role
+           
             role = getattr(user.profile, 'role', None)
             if role == 'student':
                 return redirect('student_dashboard')
