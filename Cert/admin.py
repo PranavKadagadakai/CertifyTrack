@@ -8,8 +8,11 @@ class ClubAdmin(admin.ModelAdmin):
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'role', 'phone')
-    search_fields = ('user__username', 'role')
+    list_display = ('user', 'role', 'phone')  # Ensure these fields exist in Profile
+
+if not admin.site.is_registered(Profile):
+    admin.site.register(Profile, ProfileAdmin)
+    
 
 @admin.register(Event)
 class EventAdmin(admin.ModelAdmin):
@@ -23,5 +26,7 @@ class CertificateTemplateAdmin(admin.ModelAdmin):
 
 @admin.register(Certificate)
 class CertificateAdmin(admin.ModelAdmin):
-    list_display = ('id', 'event', 'student', 'generated_at')
-    search_fields = ('event__name', 'student__username')
+    list_display = ('id', 'generated_at')  # Adjust fields as needed
+
+if not admin.site.is_registered(Certificate):
+    admin.site.register(Certificate, CertificateAdmin)
