@@ -79,8 +79,8 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'certifytrack',
-        'USER': 'certifytrack_user',
-        'PASSWORD': 'CERT',
+        'USER': 'postgres',
+        'PASSWORD': 'POSTGRES',
         'HOST': 'localhost',
         'PORT': '5432',  # Default PostgreSQL port
     }
