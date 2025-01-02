@@ -1,0 +1,26 @@
+{% extends 'base.html' %} {% block title %}View Events{% endblock %} {% block
+content %}
+<section class="view-events-section">
+  <div class="container">
+    <h1>Available Events</h1>
+    <table>
+      <tr>
+        <th>Name</th>
+        <th>Date</th>
+        <th>Description</th>
+        <th>Actions</th>
+      </tr>
+      {% for event in events %}
+      <tr>
+        <td>{{ event.name }}</td>
+        <td>{{ event.date }}</td>
+        <td>{{ event.description }}</td>
+        <td>
+          <a href="{% url 'register_for_event' event.id %}">Register</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+</section>
+{% endblock %}

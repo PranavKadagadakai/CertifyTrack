@@ -27,8 +27,9 @@ class Event(models.Model):
         ],
         default='not_started'
     )
-    certificate_template = models.BinaryField(blank=True, null=True)  # Allow blank for events without a template
+    certificate_template = models.BinaryField(blank=True, null=True, editable=True)  # Allow blank for events without a template
     created_at = models.DateTimeField(auto_now_add=True)
+    # participants = models.ManyToManyField(Profile, related_name="registered_events", blank=True)
 
     def __str__(self):
         return f"{self.name} ({self.club.name})"
