@@ -1,17 +1,20 @@
-{% extends 'base.html' %}
-
-{% block title %}Upload Certificate Template{% endblock %}
-
-{% block content %}
+{% extends 'base.html' %} {% block title %}Upload Certificate Template{%
+endblock %} {% block content %}
 <section class="upload-template-section">
-    <div class="container">
-        <h2>Upload Certificate Template for {{ event.name }}</h2>
-        <form method="POST" enctype="multipart/form-data">
-            {% csrf_token %}
-            <label for="template">Certificate Template File:</label>
-            <input type="file" name="template" id="template" required>
-            <button type="submit" class="btn btn-primary">Upload Template</button>
-        </form>
-    </div>
+  <div class="container">
+    <h1>Upload Certificate Template</h1>
+    <form method="POST" enctype="multipart/form-data">
+      {% csrf_token %}
+      <label for="template">Certificate Template (PDF):</label>
+      <input
+        type="file"
+        name="template"
+        id="template"
+        accept="application/pdf"
+        required
+      />
+      <button type="submit">Upload</button>
+    </form>
+  </div>
 </section>
 {% endblock %}

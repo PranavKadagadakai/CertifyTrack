@@ -1,0 +1,19 @@
+{% extends 'base.html' %} {% block title %}View Points and Certs{% endblock %}
+{% block content %}
+<section class="view-aicte-points-and-certificate-section">
+  <div class="container">
+    <h1>Your AICTE Points and Certificates</h1>
+    <p>Total AICTE Points: {{ profile.aicte_points }}</p>
+    <h2>Your Certificates</h2>
+    <ul>
+      {% for certificate in certificates %}
+      <li>
+        <a href="{{ certificate.file.url }}" target="_blank"
+          >{{ certificate.name }}</a
+        >
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+{% endblock %}

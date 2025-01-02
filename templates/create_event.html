@@ -1,24 +1,27 @@
-{% extends 'base.html' %}
+{% extends 'base.html' %} 
 
-{% block title %}Create Event{% endblock %}
+{% block title %}Create Event{% endblock %} 
 
 {% block content %}
 <section class="create-event-section">
-    <div class="container">
-        <h2>Create a New Event</h2>
-        <form method="POST">
-            {% csrf_token %}
-            <label for="name">Event Name:</label>
-            <input type="text" name="name" id="name" required>
+  <div class="container">
+    <h1>Create Event</h1>
+    <form method="POST" enctype="multipart/form-data"> <!-- Added enctype -->
+      {% csrf_token %}
+      {% comment %} <label for="name">Event Name:</label>
+      <input type="text" name="name" id="name" required />
 
-            <label for="date">Event Date:</label>
-            <input type="date" name="date" id="date" required>
+      <label for="date">Event Date:</label>
+      <input type="date" name="date" id="date" required />
 
-            <label for="description">Description:</label>
-            <textarea name="description" id="description"></textarea>
+      <label for="description">Description:</label>
+      <textarea name="description" id="description" required></textarea>
 
-            <button type="submit" class="btn btn-primary">Create Event</button>
-        </form>
-    </div>
+      <label for="certificate_template">Certificate Template (Optional):</label>
+      <input type="file" name="certificate_template" id="certificate_template" accept=".pdf,.png,.jpg,.jpeg" /> <!-- Accepts specific formats --> {% endcomment %}
+      {{ form.as_p }}
+      <button type="submit">Create Event</button>
+    </form>
+  </div>
 </section>
 {% endblock %}
