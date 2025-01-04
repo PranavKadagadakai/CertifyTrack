@@ -15,6 +15,9 @@
             <li>Role: {{ profile.role|default:"N/A" }}</li>
             <li>Phone: {{ profile.phone|default:"Not provided" }}</li>
             <li>Address: {{ profile.address|default:"Not provided" }}</li>
+            {% if profile.role == 'student' %}
+                <li>USN: {{ profile.usn|default:"Not provided" }}</li>  <!-- Display USN only if role is student -->
+            {% endif %}
         </ul>
         <a href="{% url 'edit_profile' %}" class="btn btn-primary">Edit Profile</a>
         {% else %}
