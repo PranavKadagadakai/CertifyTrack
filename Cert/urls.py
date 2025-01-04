@@ -3,6 +3,7 @@ from django.contrib.auth import views as auth_views
 from Cert import views
 
 urlpatterns = [
+    # Base URLs
     path('', views.home, name='home'),
     path('landingpage/', views.landingpage, name='landingpage'),
     path('profile/', views.profile, name='profile'),
@@ -20,16 +21,21 @@ urlpatterns = [
     path('club_dashboard/', views.club_dashboard, name='club_dashboard'),
     path('mentor_dashboard/', views.mentor_dashboard, name='mentor_dashboard'),
     
-    # Club role's urls
+    # Club role's URLs
     path('create_event/', views.create_event, name='create_event'),
     path('upload_participants/<int:event_id>/', views.upload_participants, name='upload_participants'),
-    path('generate_certificates/<int:event_id>/', views.generate_certificates, name='generate_certificates'),
+    path('generate_certificates/<int:event_id>/', views.generate_event_certificates, name='generate_certificates'),
     path('update_event_status/<int:event_id>/', views.update_event_status, name='update_event_status'),
     path('upload_certificate_template/<int:event_id>/', views.upload_certificate_template, name='upload_certificate_template'),
     # path('register_club/', views.register_club, name='register_club'),
     
-     # Student User
+    # Student role's URLs
     path('events/', views.view_events, name='view_events'),
     path('register-for-event/<int:event_id>/', views.register_for_event, name='register_for_event'),
     path('aicte-points/', views.view_aicte_points_and_certificates, name='view_aicte_points_and_certificates'),
+    path('event_history/', views.event_history, name='event_history'),
+    
+    # Mentor role's URLs
+    path('verify_certificate/<int:certificate_id>/', views.verify_certificate, name='verify_certificate'),
+    path('mentor_students/', views.mentor_students, name='mentor_students'),
 ]

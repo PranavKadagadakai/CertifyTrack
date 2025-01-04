@@ -9,6 +9,8 @@ class ClubAdmin(admin.ModelAdmin):
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
     list_display = ('user', 'role', 'phone')  # Ensure these fields exist in Profile
+    list_filter = ('role',)
+    search_fields = ('user__username', 'usn')
 
 if not admin.site.is_registered(Profile):
     admin.site.register(Profile, ProfileAdmin)

@@ -3,6 +3,13 @@
     <div class="container">
         <h2>Welcome, {{ user.username }}!</h2>
         <p>Track your certificates and AICTE activity points here.</p>
+
+        <div class="dashboard-actions">
+            <h3>Actions</h3>
+            <a href="{% url 'view_events' %}" class="btn btn-primary">View Available Events</a>
+            <a href="{% url 'event_history' %}" class="btn btn-primary">View Event History</a>
+            <a href="{% url 'view_aicte_points_and_certificates' %}" class="btn btn-primary">View AICTE Points and Certificates</a>
+        </div>
     </div>
 </section>
 {% endblock %}
