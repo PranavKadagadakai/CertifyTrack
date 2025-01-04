@@ -1,0 +1,11 @@
+<h2>Verify Certificate</h2>
+<p><strong>Student:</strong> {{ certificate.participant.student.username }}</p>
+<p><strong>Event:</strong> {{ certificate.event.name }}</p>
+<p><strong>Date:</strong> {{ certificate.generated_at }}</p>
+<p><strong>Status:</strong> {{ "Verified" if certificate.verified else "Not Verified" }}</p>
+
+{% if not certificate.verified %}
+<form method="POST">{% csrf_token %}
+    <button type="submit">Mark as Verified</button>
+</form>
+{% endif %}
