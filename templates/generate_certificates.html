@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+
+{% block title %}Generate Certificates{% endblock %}
+
+{% block content %}
+<section class="generate-certificates-section">
+  <div class="container">
+    <h1>Generate Certificates for {{ event.name }}</h1>
+    <form method="POST" enctype="multipart/form-data">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">Generate Certificates</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

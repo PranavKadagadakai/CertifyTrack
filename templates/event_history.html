@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Event Participation History</h2>
+
+<p><strong>Student Name:</strong> {{ request.user.username }}</p>
+<p><strong>AICTE Points:</strong> {{ request.user.profile.aicte_points }}</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Event Name</th>
+            <th>Date</th>
+            <th>Description</th>
+            <th>AICTE Points</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for record in participated_events %}
+        <tr>
+            <td>{{ record.event.name }}</td>
+            <td>{{ record.event.date }}</td>
+            <td>{{ record.event.description }}</td>
+            <td>{{ record.event.aicte_points }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
