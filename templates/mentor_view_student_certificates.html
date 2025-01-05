@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Certificates for {{ student.full_name }}</h2>
+<ul>
+    {% for certificate in certificates %}
+        <li>
+            <strong>{{ certificate.event.name }}</strong> - 
+            <a href="{% url 'view_certificate' certificate.id %}" target="_blank">View Certificate</a>
+        </li>
+    {% empty %}
+        <li>No certificates found for this student.</li>
+    {% endfor %}
+</ul>
+{% endblock %}

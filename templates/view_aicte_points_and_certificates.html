@@ -2,6 +2,7 @@
 {% block content %}
 <h2>Your AICTE Points: {{ profile.aicte_points }}</h2>
 <h3>Certificates</h3>
+
 {% if certificates %}
 <table>
     <thead>
@@ -15,15 +16,7 @@
         <tr>
             <td>{{ certificate.event.name }}</td>
             <td>
-                {% if certificate.base64_data %}
-                {% if certificate.file_type == 'pdf' %}
-                <a href="{% url 'view_certificate' certificate.id %}" target="_blank">View PDF</a>
-                {% else %}
-                <img src="data:image/jpeg;base64,{{ certificate.base64_data }}" alt="Certificate" style="max-width: 100px;">
-                {% endif %}
-                {% else %}
-                Certificate not available
-                {% endif %}
+                <a href="{% url 'view_certificate' certificate.id %}" target="_blank">View Certificate</a>
             </td>
         </tr>
         {% endfor %}
