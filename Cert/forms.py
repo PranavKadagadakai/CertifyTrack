@@ -1,5 +1,6 @@
 from django import forms
 from .models import Club, Event, Profile
+from django.contrib.auth.models import User
 
 class ClubCreationForm(forms.ModelForm):
     class Meta:
@@ -62,3 +63,14 @@ class ProfileEditForm(forms.ModelForm):
 
 class ParticipantUploadForm(forms.Form):
     participant_file = forms.FileField()
+    
+class AssignStudentsForm(forms.Form):
+    students = forms.ModelMultipleChoiceField(
+        queryset=User.objects.filter(profile__role='student'),
+        widget=forms.CheckboxSelectMultiple,
+        label="Select Students"
+    )
+    mentor = forms.ModelChoiceField(
+        queryset=User.objects.filter(profile__role='mentor'),
+        label="Select Mentor"
+    )

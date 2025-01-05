@@ -8,10 +8,12 @@ import re
 from Cert.models import Profile, Event, CertificateTemplate, Club, Certificate, Participant
 import csv
 from django.http import HttpResponse
-from Cert.forms import ClubCreationForm, EventForm, ProfileEditForm, ParticipantUploadForm
+from Cert.forms import ClubCreationForm, EventForm, ProfileEditForm, ParticipantUploadForm, AssignStudentsForm
 from django.core.mail import send_mail
 from django.conf import settings
 from .certificate_generator import generate_certificates
+import base64
+from django.core.files.uploadedfile import InMemoryUploadedFile
 
 """ 
 Base Link Views
@@ -219,17 +221,19 @@ def club_dashboard(request):
 
 @login_required
 def create_event(request):
-    if request.method == "POST":
-        form = EventForm(request.POST, request.FILES)
-        if form.is_valid():
-            event = form.save(commit=False)
-            if 'certificate_template' in request.FILES:
-                event.certificate_template = request.FILES['certificate_template'].read()
-            event.save()
-            return redirect('club_dashboard')  # Replace 'event_list' with your desired redirect URL
-    else:
-        form = EventForm()
-    return render(request, 'create_event.html', {'form': form})
+    if request.method == 'POST':
+        event = Event.objects.create(
+            name=request.POST['name'],
+            date=request.POST['date'],
+        )
+        # Save the uploaded file as binary
+        uploaded_file = request.FILES['certificate_template']
+        if isinstance(uploaded_file, InMemoryUploadedFile):
+            event.certificate_template.template_file = uploaded_file.read()
+        event.save()
+        return redirect('event_list')
+
+    return render(request, 'create_event.html')
 
 @login_required
 def upload_certificate_template(request, event_id):
@@ -382,109 +386,205 @@ def update_profile(request):
 
 @login_required
 def student_dashboard(request):
-    return render(request, 'student_dashboard.html')
+    """
+    Dashboard for students to view available events, AICTE points, and certificates.
+    """
+    if request.user.profile.role != 'student':
+        messages.error(request, "Access denied.")
+        return redirect('home')
+
+    available_events = Event.objects.filter(status='not_started')
+    profile = request.user.profile
+
+    return render(request, 'student_dashboard.html', {
+        'available_events': available_events,
+        'profile': profile,
+    })
 
 @login_required
 def view_events(request):
+    """
+    View all upcoming events.
+    """
     events = Event.objects.filter(status='not_started')
     return render(request, 'view_events.html', {'events': events})
 
 @login_required
 def register_for_event(request, event_id):
+    """
+    Register the logged-in student for an event.
+    """
     event = get_object_or_404(Event, id=event_id)
     student_profile = request.user.profile
 
-    # Ensure only students can register for events
     if student_profile.role != 'student':
         messages.error(request, "Only students can register for events.")
         return redirect('home')
 
-    # Check if the event is open for registration
     if event.status != 'not_started':
         messages.error(request, "This event is not open for registration.")
         return redirect('view_events')
 
-    # Check participant limit
-    participant_count = Participant.objects.filter(event=event).count()
-    if participant_count >= event.participant_limit:
-        messages.error(request, "This event has reached its participant limit.")
-        return redirect('view_events')
-
-    # Check if the student is already registered
     if Participant.objects.filter(event=event, student=request.user).exists():
         messages.error(request, "You are already registered for this event.")
         return redirect('view_events')
 
-    # Register the student as a participant
-    Participant.objects.create(event=event, student=request.user)
+    if Participant.objects.filter(event=event).count() >= event.participant_limit:
+        messages.error(request, "This event has reached its participant limit.")
+        return redirect('view_events')
 
-    # Update AICTE points
+    Participant.objects.create(event=event, student=request.user)
     student_profile.aicte_points += event.aicte_points
     student_profile.save()
 
-    messages.success(request, "You have successfully registered for the event.")
+    messages.success(request, "Successfully registered for the event.")
     return redirect('view_events')
 
 @login_required
 def view_aicte_points_and_certificates(request):
-    profile = Profile.objects.get(user=request.user)
-    certificates = Certificate.objects.filter(owner=profile)
+    """
+    Displays AICTE points and certificates for the logged-in student.
+    """
+    profile = request.user.profile
+    if profile.role != 'student':
+        messages.error(request, "Only students can view their AICTE points and certificates.")
+        return redirect('home')
 
+    certificates = Certificate.objects.filter(participant__student=request.user)
     return render(request, 'view_aicte_points_and_certificates.html', {
         'profile': profile,
-        'certificates': certificates
+        'certificates': certificates,
     })
-    
+
 @login_required
 def event_history(request):
     """
-    Displays the event participation history for the logged-in student.
+    View the history of events the student has participated in.
     """
     if request.user.profile.role != 'student':
-        messages.error(request, "Only students can access their event history.")
+        messages.error(request, "Only students can view event history.")
         return redirect('home')
 
-    # Get events the student has participated in
     participated_events = Participant.objects.filter(student=request.user).select_related('event')
-
-    return render(request, 'event_history.html', {
-        'participated_events': participated_events,
-    })
+    return render(request, 'event_history.html', {'participated_events': participated_events})
 
 # 1. Mentor Role's Views
 
 @login_required
 def mentor_dashboard(request):
-    if request.user.profile.role != 'mentor':
+    """
+    Dashboard for mentors to view their students and their certificates.
+    """
+    # Check if the logged-in user is a mentor
+    if not hasattr(request.user, 'profile') or request.user.profile.role != 'mentor':
         return HttpResponseForbidden("Access denied.")
-    students = Profile.objects.filter(role='student')
-    return render(request, 'mentor_dashboard.html', {'students': students})
 
-@login_required
-def verify_certificate(request, certificate_id):
-    try:
-        certificate = Certificate.objects.get(id=certificate_id)
-        return render(request, 'verify_certificate.html', {'certificate': certificate})
-    except Certificate.DoesNotExist:
-        messages.error(request, "Certificate not found.")
-        return redirect('mentor_dashboard')
-    
+    # Get the students assigned to the mentor (as Profiles)
+    students = Profile.objects.filter(role='student', mentor=request.user)
+
+    # Extract the User instances of these students
+    student_users = students.values_list('user', flat=True)
+
+    # Fetch certificates for these students
+    certificates = Certificate.objects.filter(participant__student__in=student_users)
+
+    return render(request, 'mentor_dashboard.html', {
+        'students': students,
+        'certificates': certificates,
+    })
+
 @login_required
 def mentor_students(request):
     """
-    View the list of students assigned to the logged-in mentor.
+    View all students assigned to the logged-in mentor.
     """
-    if request.user.profile.role != 'mentor':
-        messages.error(request, "Only mentors can access this page.")
-        return redirect('home')
-
-    # Get the students assigned to this mentor
-    assigned_students = Profile.objects.filter(role='student', mentor=request.user)
-
-    return render(request, 'mentor_students.html', {
-        'students': assigned_students,
-    })
+    if not hasattr(request.user, 'profile') or request.user.profile.role != 'mentor':
+        return HttpResponseForbidden("Access denied.")
     
+    students = Profile.objects.filter(mentor=request.user, role='student')
+    
+    return render(request, 'mentor_students.html', {'students': students})
+
+
+@login_required
+def verify_certificate(request, certificate_id):
+    """
+    Allows a mentor to verify a certificate.
+    """
+    if not hasattr(request.user, 'profile') or request.user.profile.role != 'mentor':
+        return HttpResponseForbidden("Access denied.")
+    
+    certificate = get_object_or_404(Certificate, id=certificate_id)
+    if certificate.participant.student.profile.mentor != request.user:
+        return HttpResponseForbidden("You do not have permission to verify this certificate.")
+    
+    certificate.verified = True
+    certificate.save()
+    return redirect('mentor_dashboard')
+
+@login_required
+def assign_students(request):
+    """
+    Allows a mentor to assign students to themselves or other mentors.
+    """
+    if not hasattr(request.user, 'profile') or request.user.profile.role != 'mentor':
+        return HttpResponseForbidden("Access denied.")
+    
+    if request.method == 'POST':
+        form = AssignStudentsForm(request.POST)
+        if form.is_valid():
+            students = form.cleaned_data['students']
+            mentor = form.cleaned_data['mentor']
+            
+            for student in students:
+                student_profile = Profile.objects.get(user=student)
+                student_profile.mentor = mentor
+                student_profile.save()
+            return redirect('mentor_dashboard')
+    else:
+        form = AssignStudentsForm()
+
+    return render(request, 'assign_students.html', {'form': form})
+
+@login_required
+def assign_event(request):
+    """
+    Assigns an event to students.
+    """
+    if not hasattr(request.user, 'profile') or request.user.profile.role != 'mentor':
+        return HttpResponseForbidden("Access denied.")
+
+    if request.method == 'POST':
+        students = request.POST.getlist('students')
+        event_id = request.POST.get('event')
+        event = get_object_or_404(Event, id=event_id)
+
+        for student_id in students:
+            student = get_object_or_404(User, id=student_id)
+            participant, created = Participant.objects.get_or_create(student=student, event=event)
+
+        return redirect('mentor_dashboard')
+
+    students = Profile.objects.filter(role='student', mentor=request.user)
+    events = Event.objects.all()
+
+    return render(request, 'assign_event.html', {'students': students, 'events': events})
+
+@login_required
+def generate_certificate(request, event_id):
+    """
+    Generate a certificate for all participants in an event.
+    """
+    if not hasattr(request.user, 'profile') or request.user.profile.role != 'mentor':
+        return HttpResponseForbidden("Access denied.")
+
+    event = get_object_or_404(Event, id=event_id)
+    participants = Participant.objects.filter(event=event)
+
+    for participant in participants:
+        Certificate.objects.create(event=event, participant=participant)
+    
+    return redirect('mentor_dashboard')
     
 """
 To be decided

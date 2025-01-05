@@ -67,7 +67,7 @@ class Participant(models.Model):
 
 # Profile Model
 class Profile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True, related_name='profile')
     role = models.CharField(
         max_length=20,
         choices=[
@@ -82,7 +82,7 @@ class Profile(models.Model):
     address = models.TextField(blank=True, null=True)
     aicte_points = models.IntegerField(default=0)  # AICTE points for students
     usn = models.CharField(max_length=10, unique=True, blank=True, null=True, db_index=True)  # USN is optional for non-students
-    mentor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_students')
+    mentor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='mentees')
     
     def clean(self):
         # Validate USN format only for students
@@ -122,6 +122,17 @@ class Certificate(models.Model):
     generated_file = models.BinaryField(default=b'')  # Store binary data for the certificate
     generated_at = models.DateTimeField(auto_now_add=True)
     verified = models.BooleanField(default=False)
+    
+    def is_pdf(self):
+        # Check the first few bytes of the binary data (PDF files start with "%PDF")
+        if self.event.certificate_template.template_file[:4] == b'%PDF':
+            return True
+        return False
+    
+    def __str__(self):
+        if self.participant:
+            return f"Certificate for {self.participant.student.username} - {self.event.name}"
+        return f"Certificate for Unknown Participant - {self.event.name}"
 
     def __str__(self):
         return f"Certificate for {self.participant.student.username} - {self.event.name}"

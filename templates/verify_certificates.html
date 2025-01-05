@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Verify Certificate</h2>
+{% if certificate %}
+<p><strong>Event:</strong> {{ certificate.event.name }}</p>
+<p><strong>Participant:</strong> {{ certificate.participant.student.get_full_name }}</p>
+<p><strong>Generated At:</strong> {{ certificate.generated_at }}</p>
+<p><strong>Verified:</strong> {{ certificate.verified }}</p>
+{% if certificate.base64_data %}
+    {% if certificate.file_type == 'pdf' %}
+    <a href="{% url 'view_certificate' certificate.id %}" target="_blank">View Certificate (PDF)</a>
+    {% else %}
+    <img src="data:image/jpeg;base64,{{ certificate.base64_data }}" alt="Certificate" style="max-width: 300px;">
+    {% endif %}
+{% else %}
+<p>Certificate file not available.</p>
+{% endif %}
+{% else %}
+<p>Certificate not found.</p>
+{% endif %}
+{% endblock %}
