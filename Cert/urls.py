@@ -34,8 +34,12 @@ urlpatterns = [
     path('register-for-event/<int:event_id>/', views.register_for_event, name='register_for_event'),
     path('aicte-points/', views.view_aicte_points_and_certificates, name='view_aicte_points_and_certificates'),
     path('event_history/', views.event_history, name='event_history'),
+    # path('certificate/<int:certificate_id>/', views.view_certificate, name='view_certificate'),
     
     # Mentor role's URLs
-    path('verify_certificate/<int:certificate_id>/', views.verify_certificate, name='verify_certificate'),
+    path('verify-certificate/<int:certificate_id>/', views.verify_certificate, name='verify_certificate'),
     path('mentor_students/', views.mentor_students, name='mentor_students'),
+    path('assign_students/', views.assign_students, name='assign_students'),
+    path('generate_certificate/<int:event_id>/', views.generate_certificate, name='generate_certificate'),
+    path('assign_event/', views.assign_event, name='assign_event'),
 ]
