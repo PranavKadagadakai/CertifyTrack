@@ -1,15 +1,10 @@
-{% extends 'base.html' %} {% block title %}Student Dashboard{% endblock %} {% block content %}
-<section class="dashboard-section">
-    <div class="container">
-        <h2>Welcome, {{ user.username }}!</h2>
-        <p>Track your certificates and AICTE activity points here.</p>
-
-        <div class="dashboard-actions">
-            <h3>Actions</h3>
-            <a href="{% url 'view_events' %}" class="btn btn-primary">View Available Events</a>
-            <a href="{% url 'event_history' %}" class="btn btn-primary">View Event History</a>
-            <a href="{% url 'view_aicte_points_and_certificates' %}" class="btn btn-primary">View AICTE Points and Certificates</a>
-        </div>
-    </div>
-</section>
+{% extends "base.html" %}
+{% block content %}
+<h2>Welcome, {{ request.user.first_name }}!</h2>
+<p>Here are some options for you:</p>
+<ul>
+    <li><a href="{% url 'view_events' %}">View Events</a></li>
+    <li><a href="{% url 'event_history' %}">View Event History</a></li>
+    <li><a href="{% url 'view_aicte_points_and_certificates' %}">View AICTE Points & Certificates</a></li>
+</ul>
 {% endblock %}

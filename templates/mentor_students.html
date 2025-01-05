@@ -1,31 +1,12 @@
 {% extends "base.html" %}
-{% block content %}
-<h2>Students Assigned to You</h2>
 
-<table>
-    <thead>
-        <tr>
-            <th>USN</th>
-            <th>Name</th>
-            <th>Branch</th>
-            <th>Semester</th>
-            <th>AICTE Points</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for student in students %}
-        <tr>
-            <td>{{ student.usn }}</td>
-            <td>{{ student.user.username }}</td>
-            <td>{{ student.branch }}</td>
-            <td>{{ student.semester }}</td>
-            <td>{{ student.aicte_points }}</td>
-            <td>
-                <a href="{% url 'verify_certificate' student.user.id %}">View Certificates</a>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+{% block content %}
+<h2>Your Assigned Students</h2>
+<ul>
+    {% for student in students %}
+        <li>{{ student.user.first_name }} {{ student.user.last_name }} ({{ student.user.username }})</li>
+    {% empty %}
+        <li>No students assigned yet.</li>
+    {% endfor %}
+</ul>
 {% endblock %}
