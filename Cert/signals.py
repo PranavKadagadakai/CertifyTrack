@@ -6,11 +6,9 @@ from .models import Profile
 
 @receiver(post_save, sender=User)
 def create_profile(sender, instance, created, **kwargs):
-    """
-    Automatically create a Profile object whenever a new User is created.
-    """
     if created:
-        Profile.objects.create(user=instance)
+        if not hasattr(instance, 'profile'):  # Ensure no duplicate creation
+            Profile.objects.create(user=instance)
 
 @receiver(post_save, sender=Profile)
 def redirect_to_club_creation(sender, instance, created, **kwargs):

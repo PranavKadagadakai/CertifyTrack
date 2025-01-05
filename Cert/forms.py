@@ -1,6 +1,7 @@
 from django import forms
-from .models import Club, Event, Profile
+from .models import Club, Event, Profile, CertificateTemplate
 from django.contrib.auth.models import User
+import re
 
 class ClubCreationForm(forms.ModelForm):
     class Meta:
@@ -47,16 +48,15 @@ class EventForm(forms.ModelForm):
 class ProfileEditForm(forms.ModelForm):
     class Meta:
         model = Profile
-        fields = ['phone', 'address', 'usn']
+        fields = ['full_name', 'phone', 'address', 'usn']
         widgets = {
             'address': forms.Textarea(attrs={'rows': 3, 'cols': 20}),
         }
 
     def __init__(self, *args, **kwargs):
-        # Access the profile role from the instance (not passed directly as a parameter)
-        profile = kwargs.get('instance')  # Get the instance from kwargs
+        profile = kwargs.get('instance')  # Get the profile instance from kwargs
         super(ProfileEditForm, self).__init__(*args, **kwargs)
-        
+
         # If the user is not a student, remove the 'usn' field
         if profile and profile.role != 'student':
             self.fields.pop('usn')
@@ -74,3 +74,8 @@ class AssignStudentsForm(forms.Form):
         queryset=User.objects.filter(profile__role='mentor'),
         label="Select Mentor"
     )
+
+class CertificateTemplateForm(forms.ModelForm):
+    class Meta:
+        model = CertificateTemplate
+        fields = ['template_file']

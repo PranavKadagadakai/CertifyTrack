@@ -4,7 +4,7 @@
 <h2>Your Assigned Students</h2>
 <ul>
     {% for student in students %}
-        <li>{{ student.user.first_name }} {{ student.user.last_name }} ({{ student.user.username }})</li>
+        <li>{{ student.full_name }} ({{ student.user.username }})</li>
     {% empty %}
         <li>No students assigned yet.</li>
     {% endfor %}
