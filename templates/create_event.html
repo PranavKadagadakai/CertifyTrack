@@ -8,17 +8,6 @@
     <h1>Create Event</h1>
     <form method="POST" enctype="multipart/form-data"> <!-- Added enctype -->
       {% csrf_token %}
-      {% comment %} <label for="name">Event Name:</label>
-      <input type="text" name="name" id="name" required />
-
-      <label for="date">Event Date:</label>
-      <input type="date" name="date" id="date" required />
-
-      <label for="description">Description:</label>
-      <textarea name="description" id="description" required></textarea>
-
-      <label for="certificate_template">Certificate Template (Optional):</label>
-      <input type="file" name="certificate_template" id="certificate_template" accept=".pdf,.png,.jpg,.jpeg" /> <!-- Accepts specific formats --> {% endcomment %}
       {{ form.as_p }}
       <button type="submit">Create Event</button>
     </form>

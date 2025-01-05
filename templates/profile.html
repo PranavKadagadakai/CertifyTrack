@@ -10,8 +10,7 @@
         <ul>
             <li>Username: {{ user.username }}</li>
             <li>Email: {{ user.email }}</li>
-            <li>First Name: {{ user.first_name|default:"N/A" }}</li>
-            <li>Last Name: {{ user.last_name|default:"N/A" }}</li>
+            <li>Full Name: {{ profile.full_name|default:"N/A" }}</li>
             <li>Role: {{ profile.role|default:"N/A" }}</li>
             <li>Phone: {{ profile.phone|default:"Not provided" }}</li>
             <li>Address: {{ profile.address|default:"Not provided" }}</li>

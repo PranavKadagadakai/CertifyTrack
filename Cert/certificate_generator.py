@@ -1,66 +1,55 @@
 import io
-import os
-import pandas as pd
-from PyPDF2 import PdfReader, PdfWriter
+import base64
+from PIL import Image, ImageDraw, ImageFont
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from django.core.files.base import ContentFile
-from Cert.models import Event
 
-def generate_certificates(event_id, participant_file_path, name_col="Name", usn_col="USN", horz=100, vert=500, font="Inter.ttf", font_size=24):
-    try:
-        # Fetch event and its certificate template from the database
-        event = Event.objects.get(id=event_id)
-        if not event.certificate_template:
-            raise ValueError("No certificate template found for this event.")
+def generate_image_certificate(template, participant_name, usn=None):
+    """
+    Generate a certificate image by overlaying participant details.
+    """
+    with Image.open(io.BytesIO(template)) as img:
+        draw = ImageDraw.Draw(img)
+        # Font configuration (adjust path and size as necessary)
+        font = ImageFont.truetype("arial.ttf", 40)
         
-        # Load the certificate template from binary field
-        certemplate_binary = io.BytesIO(event.certificate_template)
-        certemplate_binary.seek(0)
-        existing_pdf = PdfReader(certemplate_binary)
+        # Positioning for text (adjust coordinates for your template)
+        draw.text((300, 200), participant_name, font=font, fill="black")
+        if usn:
+            draw.text((300, 250), usn, font=font, fill="black")
+        
+        # Save the result in binary format
+        output = io.BytesIO()
+        img.save(output, format="PNG")
+        return output.getvalue()
 
-        # Load the participant Excel file
-        data = pd.read_excel(participant_file_path)
-        name_list = data[name_col].tolist()
-        usn_list = data[usn_col].tolist()
+def generate_pdf_certificate(template, participant_name, usn=None):
+    """
+    Generate a certificate PDF by overlaying participant details.
+    """
+    output = io.BytesIO()
+    template_io = io.BytesIO(template)
 
-        # Ensure the certificates directory exists
-        output_dir = os.path.join("certificates", f"event_{event.id}")
-        os.makedirs(output_dir, exist_ok=True)
+    # Create a new PDF and overlay participant details
+    c = canvas.Canvas(output, pagesize=letter)
+    c.drawImage(template_io, 0, 0, width=letter[0], height=letter[1])
 
-        # Register the font
-        pdfmetrics.registerFont(TTFont("CustomFont", font))
+    # Add participant details
+    c.setFont("Helvetica-Bold", 14)
+    c.drawString(200, 300, f"Name: {participant_name}")
+    if usn:
+        c.drawString(200, 270, f"USN: {usn}")
 
-        # Generate certificates
-        for name, usn in zip(name_list, usn_list):
-            packet = io.BytesIO()
-            can = canvas.Canvas(packet, pagesize=letter)
+    c.save()
+    return output.getvalue()
 
-            # Set the font and write the name and USN
-            can.setFont("CustomFont", font_size)
-            can.drawString(horz, vert, name.upper().strip())  # Name position
-            can.drawString(horz, vert - 50, usn.upper().strip())  # USN position
-
-            can.save()
-            packet.seek(0)
-
-            # Overlay the new content on the template
-            new_pdf = PdfReader(packet)
-            page = existing_pdf.pages[0]  # Use the first page of the template
-            page.merge_page(new_pdf.pages[0])
-
-            # Save the final certificate
-            output = PdfWriter()
-            output.add_page(page)
-            cert_filename = os.path.join(output_dir, f"{name}_{usn}.pdf")
-            with open(cert_filename, "wb") as outputStream:
-                output.write(outputStream)
-            
-            print(f"Certificate created for {name} ({usn})")
-
-        print("All certificates have been generated successfully.")
-
-    except Exception as e:
-        print(f"An error occurred: {e}")
+def generate_certificate(template, participant_name, usn=None, file_type="pdf"):
+    """
+    Generate a certificate based on the template file type.
+    """
+    if file_type in ["png", "jpg", "jpeg"]:
+        return generate_image_certificate(template, participant_name, usn)
+    elif file_type == "pdf":
+        return generate_pdf_certificate(template, participant_name, usn)
+    else:
+        raise ValueError(f"Unsupported template file type: {file_type}")

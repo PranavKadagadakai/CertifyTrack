@@ -42,4 +42,8 @@ urlpatterns = [
     path('assign_students/', views.assign_students, name='assign_students'),
     path('generate_certificate/<int:event_id>/', views.generate_certificate, name='generate_certificate'),
     path('assign_event/', views.assign_event, name='assign_event'),
+    path('mentor_view_certificates/<int:student_id>/', views.mentor_view_student_certificates, name='mentor_view_certificates'),
+    
+    # Temporary to be decided URLs
+    path('view_certificate/<int:certificate_id>/', views.view_certificate, name='view_certificate'),
 ]

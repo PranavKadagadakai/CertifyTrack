@@ -5,14 +5,38 @@
 <ul>
     <li><a href="{% url 'mentor_students' %}">View Assigned Students</a></li>
     <li>
-        {% if certificate and certificate.id %}
-            <a href="{% url 'verify_certificate' certificate.id %}">Verify Certificates</a>
+        {% if certificates %}
+            <a href="{% url 'verify_certificate' certificates.first.id %}">Verify Certificates</a>
         {% else %}
             No certificate available for verification.
         {% endif %}
     </li>
     <li><a href="{% url 'assign_students' %}" class="btn btn-primary">Assign Students to Mentor</a></li>
     <li><a href="{% url 'assign_event' %}" class="btn btn-primary">Assign Events to Students</a></li>
-    {% comment %} <li><a href="{% url 'generate_certificate' event_id=event.id %}" class="btn btn-primary">Generate Certificates</a></li> {% endcomment %}
 </ul>
+
+<h3>Assigned Students</h3>
+<table>
+    <thead>
+        <tr>
+            <th>Student Name</th>
+            <th>USN</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for student in students %}
+        <tr>
+            <td>{{ student.full_name }}</td>
+            <td>{{ student.usn }}</td>
+            <td>
+                <a href="{% url 'mentor_view_certificates' student.user.id %}" class="btn btn-primary">
+                    View Certificates
+                </a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
 {% endblock %}
