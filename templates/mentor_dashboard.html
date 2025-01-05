@@ -1,12 +1,18 @@
-{% extends 'base.html' %}
-
-{% block title %}Mentor Dashboard{% endblock %}
-
+{% extends "base.html" %}
 {% block content %}
-<section class="dashboard-section">
-    <div class="container">
-        <h2>Welcome, {{ user.username }}!</h2>
-        <p>Review and validate student certificates and allocate points.</p>
-    </div>
-</section>
+<h2>Welcome, {{ request.user.first_name }}!</h2>
+<p>Here are some options for you:</p>
+<ul>
+    <li><a href="{% url 'mentor_students' %}">View Assigned Students</a></li>
+    <li>
+        {% if certificate and certificate.id %}
+            <a href="{% url 'verify_certificate' certificate.id %}">Verify Certificates</a>
+        {% else %}
+            No certificate available for verification.
+        {% endif %}
+    </li>
+    <li><a href="{% url 'assign_students' %}" class="btn btn-primary">Assign Students to Mentor</a></li>
+    <li><a href="{% url 'assign_event' %}" class="btn btn-primary">Assign Events to Students</a></li>
+    {% comment %} <li><a href="{% url 'generate_certificate' event_id=event.id %}" class="btn btn-primary">Generate Certificates</a></li> {% endcomment %}
+</ul>
 {% endblock %}
