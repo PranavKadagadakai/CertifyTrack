@@ -7,11 +7,11 @@ from django.core.exceptions import ValidationError
 import re
 from Cert.models import Profile, Event, CertificateTemplate, Club, Certificate, Participant
 import csv
-from django.http import HttpResponse
-from Cert.forms import ClubCreationForm, EventForm, ProfileEditForm, ParticipantUploadForm, AssignStudentsForm
+from django.http import HttpResponse, Http404
+from Cert.forms import ClubCreationForm, EventForm, ProfileEditForm, ParticipantUploadForm, AssignStudentsForm, CertificateTemplateForm
 from django.core.mail import send_mail
 from django.conf import settings
-from .certificate_generator import generate_certificates
+from .certificate_generator import generate_certificate
 import base64
 from django.core.files.uploadedfile import InMemoryUploadedFile
 
@@ -94,7 +94,7 @@ def edit_profile(request):
     profile = request.user.profile  # Get the profile associated with the logged-in user
 
     if request.method == 'POST':
-        form = ProfileEditForm(request.POST, instance=profile)  # No need to pass 'role' here
+        form = ProfileEditForm(request.POST, instance=profile)
         if form.is_valid():
             form.save()  # Save the form data to the profile model
             messages.success(request, "Your profile has been updated successfully.")
@@ -102,7 +102,7 @@ def edit_profile(request):
         else:
             messages.error(request, "There were errors in the form.")
     else:
-        form = ProfileEditForm(instance=profile)  # Pass the profile instance to the form
+        form = ProfileEditForm(instance=profile)
 
     return render(request, 'edit_profile.html', {'form': form})
 
@@ -190,7 +190,7 @@ def signup_view(request):
         # Assign role to profile
         profile, created = Profile.objects.get_or_create(user=user)
         profile.role = role
-        profile.save()
+        # profile.save()
         
         if role == 'club':
             # Create a Club instance for the user
@@ -221,50 +221,62 @@ def club_dashboard(request):
 
 @login_required
 def create_event(request):
-    if request.method == 'POST':
-        event = Event.objects.create(
-            name=request.POST['name'],
-            date=request.POST['date'],
-        )
-        # Save the uploaded file as binary
-        uploaded_file = request.FILES['certificate_template']
-        if isinstance(uploaded_file, InMemoryUploadedFile):
-            event.certificate_template.template_file = uploaded_file.read()
-        event.save()
-        return redirect('event_list')
+    if request.method == "POST":
+        form = EventForm(request.POST, request.FILES)
+        if form.is_valid():
+            event = form.save(commit=False)
+            event.club = request.user.admin_club  # Assign the event to the logged-in club's admin
+            event.save()
 
-    return render(request, 'create_event.html')
+            # Handle the uploaded certificate template
+            if 'certificate_template' in request.FILES:
+                certificate_template = CertificateTemplate.objects.create(
+                    event=event,
+                    template_file=request.FILES['certificate_template']
+                )
+                event.template = certificate_template
+                event.save()
+
+            messages.success(request, "Event created successfully!")
+            return redirect('club_dashboard')
+        else:
+            messages.error(request, "There were errors in the form. Please fix them and try again.")
+    else:
+        form = EventForm()
+
+    return render(request, 'create_event.html', {'form': form})
 
 @login_required
 def upload_certificate_template(request, event_id):
+    """
+    Allows clubs to upload a certificate template for an event.
+    """
     event = get_object_or_404(Event, id=event_id)
 
-    # Check if the user is authorized to upload a template
-    if event.club.admin != request.user:
-        messages.error(request, "You are not authorized to upload a certificate template for this event.")
-        return redirect('club_dashboard')
+    # Ensure the user is a club admin
+    if request.user.profile.role != 'club':
+        messages.error(request, "Unauthorized access.")
+        return redirect('home')
 
-    if request.method == 'POST' and request.FILES.get('template'):
-        template_file = request.FILES['template']
-        
-        # Validate file format
-        if not template_file.name.endswith(('.pdf', '.png', '.jpg')):
-            messages.error(request, "The template must be in PDF, PNG, or JPG format.")
-            return redirect('upload_certificate_template', event_id=event.id)
+    if request.method == 'POST':
+        form = CertificateTemplateForm(request.POST, request.FILES)
+        if form.is_valid():
+            if 'template_file' in request.FILES:
+                # Create or update the certificate template
+                template, created = CertificateTemplate.objects.get_or_create(event=event)
+                template.template_file = request.FILES['template_file']
+                template.save()
 
-        # Create or update the template
-        template, created = CertificateTemplate.objects.get_or_create(event=event)
-        template.template_file = template_file
-        template.save()
+                messages.success(request, "Certificate template uploaded successfully.")
+                return redirect('club_dashboard')
+            else:
+                messages.error(request, "Please upload a certificate template file.")
+        else:
+            messages.error(request, "Invalid form submission.")
+    else:
+        form = CertificateTemplateForm()
 
-        # Link the template to the event
-        event.template = template
-        event.save()
-
-        messages.success(request, "Certificate template uploaded successfully.")
-        return redirect('club_dashboard')
-
-    return render(request, 'upload_certificate_template.html', {'event': event})
+    return render(request, 'upload_certificate_template.html', {'form': form, 'event': event})
 
 @login_required
 def update_event_status(request, event_id):
@@ -322,16 +334,19 @@ def upload_participants(request, event_id):
 
 @login_required
 def generate_event_certificates(request, event_id):
+    """
+    Generate certificates for all participants of an event.
+    """
     event = get_object_or_404(Event, id=event_id)
 
-    # Ensure only clubs can generate certificates
+    # Ensure the user is a club admin
     if request.user.profile.role != 'club':
         messages.error(request, "Unauthorized access.")
         return redirect('home')
 
-    # Check if a certificate template exists for the event
-    if not event.certificate_template:
-        messages.error(request, "Please upload a certificate template before generating certificates.")
+    # Check if a certificate template exists
+    if not hasattr(event, 'certificate_template') or not event.certificate_template:
+        messages.error(request, "Please upload a certificate template.")
         return redirect('upload_certificate_template', event_id=event_id)
 
     # Get all participants for the event
@@ -341,25 +356,28 @@ def generate_event_certificates(request, event_id):
         messages.error(request, "No participants found for this event.")
         return redirect('club_dashboard')
 
+    template_file = event.certificate_template.template_file.read()
+    file_type = event.certificate_template.template_file.name.split(".")[-1].lower()
+
     # Generate certificates for each participant
     for participant in participants:
         try:
-            # Generate certificate logic (replace with actual implementation)
-            certificate_content = f"Certificate for {participant.student.username} in event {event.name}"
+            certificate_data = generate_certificate(
+                template_file,
+                participant.student.first_name,
+                participant.student.profile.usn,
+                file_type
+            )
 
-            # Save certificate to the database
+            # Save the certificate
             Certificate.objects.create(
                 event=event,
                 participant=participant,
-                generated_file=certificate_content.encode()  # Placeholder binary content
+                generated_file=certificate_data
             )
         except Exception as e:
             messages.error(request, f"Error generating certificate for {participant.student.username}: {str(e)}")
             continue
-
-    # Mark the event as finished
-    event.status = 'finished'
-    event.save()
 
     messages.success(request, "Certificates generated successfully.")
     return redirect('club_dashboard')
@@ -585,10 +603,64 @@ def generate_certificate(request, event_id):
         Certificate.objects.create(event=event, participant=participant)
     
     return redirect('mentor_dashboard')
+
+@login_required
+def mentor_view_student_certificates(request, student_id):
+    """
+    Display certificates for a specific student assigned to the mentor.
+    """
+    if request.user.profile.role != 'mentor':
+        return HttpResponseForbidden("Access denied.")
+
+    # Check if the student is assigned to the mentor
+    student = get_object_or_404(Profile, user__id=student_id, role='student', mentor=request.user)
+
+    # Fetch certificates for the selected student
+    certificates = Certificate.objects.filter(participant__student=student.user).select_related('event', 'participant')
+
+    return render(request, 'mentor_view_student_certificates.html', {
+        'student': student,
+        'certificates': certificates,
+    })
     
 """
 To be decided
 """
+
+@login_required
+def view_certificate(request, certificate_id):
+    """
+    Serve the certificate file for viewing.
+    """
+    try:
+        certificate = Certificate.objects.get(id=certificate_id)
+
+        # Ensure the user has permission to view the certificate
+        if (
+            request.user.profile.role == 'student'
+            and certificate.participant.student != request.user
+        ):
+            return HttpResponse("Unauthorized", status=403)
+
+        if (
+            request.user.profile.role == 'mentor'
+            and certificate.participant.student.profile.mentor != request.user
+        ):
+            return HttpResponse("Unauthorized", status=403)
+
+        # Retrieve the file data
+        file_data = certificate.generated_file
+
+        # Determine content type
+        if certificate.event.certificate_template.template_file.name.endswith('.pdf'):
+            content_type = 'application/pdf'
+        else:
+            content_type = 'image/jpeg'  # Default to JPEG for images
+
+        return HttpResponse(file_data, content_type=content_type)
+    except Certificate.DoesNotExist:
+        raise Http404("Certificate not found.")
+
 
 @login_required
 def register_club(request):

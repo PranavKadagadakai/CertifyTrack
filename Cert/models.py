@@ -68,6 +68,7 @@ class Participant(models.Model):
 # Profile Model
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True, related_name='profile')
+    full_name = models.CharField(max_length=255, null=True, blank=True)  # Full name field
     role = models.CharField(
         max_length=20,
         choices=[
@@ -81,19 +82,8 @@ class Profile(models.Model):
     phone = models.CharField(max_length=15, blank=True, null=True)
     address = models.TextField(blank=True, null=True)
     aicte_points = models.IntegerField(default=0)  # AICTE points for students
-    usn = models.CharField(max_length=10, unique=True, blank=True, null=True, db_index=True)  # USN is optional for non-students
+    usn = models.CharField(max_length=10, unique=True, blank=True, null=True, db_index=True)  # Optional USN
     mentor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='mentees')
-    
-    def clean(self):
-        # Validate USN format only for students
-        if self.role == 'student' and self.usn:
-            pattern = r"^\d{2}[A-Z]{2}\d{2}[A-Z]{2}\d{3}$"
-            if not re.match(pattern, self.usn):
-                raise ValidationError("USN must follow the pattern: 2GI22IS001.")
-
-    def save(self, *args, **kwargs):
-        self.clean()  # Ensure validation runs before saving
-        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.user.username} - {self.role}"
@@ -113,6 +103,7 @@ class CertificateTemplate(models.Model):
 
     def __str__(self):
         return f"Template for {self.event.name if self.event else 'No Event Assigned'}"
+
 
 
 # Certificate Model
