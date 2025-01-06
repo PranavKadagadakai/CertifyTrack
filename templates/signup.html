@@ -1,72 +1,109 @@
-{% extends 'base.html' %} {% block title %}Signup{% endblock %}
+{% extends 'base.html' %}
+
+{% block title %}Signup{% endblock %}
+
 {% block content %}
-
-<head>
-  {% load static %}
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <script src="https://kit.fontawesome.com/64d58efce2.js" crossorigin="anonymous"></script>
-  <link rel="stylesheet" href="{% static 'css/signuppage.css' %}" />
-  <title>Signup</title>
-</head>
-
-<body>
-  <div class="container">
-    <div class="forms-container">
-      <div class="signin-signup">
-        <!-- Sign Up Form -->
-        <form action="{% url 'signup' %}" method="POST" class="sign-up-form" id="signUpForm">
-          {% csrf_token %}
-          <h2 class="title">Sign up</h2>
-          <div class="input-field">
+<div class="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
+  <div class="w-full max-w-lg p-6 bg-white rounded-lg shadow-lg dark:bg-gray-800">
+    <h2 class="text-2xl font-bold text-center text-gray-800 dark:text-gray-200">Sign Up</h2>
+    <form action="{% url 'signup' %}" method="POST" id="signUpForm">
+      {% csrf_token %}
+      <div class="mt-4">
+        <label for="username" class="block text-sm text-gray-600 dark:text-gray-400">Username</label>
+        <div class="flex items-center border rounded-lg bg-gray-50 dark:bg-gray-700">
+          <span class="p-2 text-gray-500 dark:text-gray-300">
             <i class="fas fa-user"></i>
-            <input type="text" name="username" placeholder="Username" required />
-          </div>
-          <div class="input-field">
-            <i class="fas fa-user"></i>
-            <input type="text" name="full_name" placeholder="Full Name" required />
-          </div>  
-          <div class="input-field">
-            <i class="fas fa-envelope"></i>
-            <input type="email" name="email" placeholder="Email" required />
-          </div>
-          <div class="input-field">
-            <i class="fas fa-lock"></i>
-            <input type="password" name="password1" placeholder="Password" required />
-          </div>
-          <div class="input-field">
-            <i class="fas fa-lock"></i>
-            <input type="password" name="password2" placeholder="Confirm Password" required />
-          </div>
-          <div class="input-field">
-            <i class="fas fa-users"></i>
-            <select name="role" id="role" class="input-select">
-              <option value="" disabled selected>Select Role</option>
-              <option value="student">Student</option>
-              <option value="club">Club</option>
-              <option value="mentor">Mentor</option>
-            </select>
-          </div>        
-          <input type="submit" class="btn" value="Sign up" id="submitBtnSignUp" />
-        </form>
-      </div>
-    </div>
-
-    <div class="panels-container">
-      <div class="panel right-panel">
-        <div class="content">
-          <h3>One of us?</h3>
-          <p>
-            Already have an account? Sign in to continue tracking your
-            certifications and achievements.
-          </p>
-          <a href="{% url 'login' %}">
-            <button class="btn transparent" id="sign-in-btn">Sign in</button>
-          </a>
+          </span>
+          <input
+            type="text"
+            name="username"
+            id="username"
+            class="w-full p-2 bg-transparent outline-none dark:text-gray-200"
+            placeholder="Enter your username"
+            required
+          />
         </div>
-        <img src="{% static 'images/register.svg' %}" class="image" alt="Register Image" />
       </div>
+
+      <div class="mt-4">
+        <label for="full_name" class="block text-sm text-gray-600 dark:text-gray-400">Full Name</label>
+        <div class="flex items-center border rounded-lg bg-gray-50 dark:bg-gray-700">
+          <span class="p-2 text-gray-500 dark:text-gray-300">
+            <i class="fas fa-user"></i>
+          </span>
+          <input
+            type="text"
+            name="full_name"
+            id="full_name"
+            class="w-full p-2 bg-transparent outline-none dark:text-gray-200"
+            placeholder="Enter your full name"
+            required
+          />
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <label for="email" class="block text-sm text-gray-600 dark:text-gray-400">Email</label>
+        <div class="flex items-center border rounded-lg bg-gray-50 dark:bg-gray-700">
+          <span class="p-2 text-gray-500 dark:text-gray-300">
+            <i class="fas fa-envelope"></i>
+          </span>
+          <input
+            type="email"
+            name="email"
+            id="email"
+            class="w-full p-2 bg-transparent outline-none dark:text-gray-200"
+            placeholder="Enter your email"
+            required
+          />
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <label for="password1" class="block text-sm text-gray-600 dark:text-gray-400">Password</label>
+        <div class="flex items-center border rounded-lg bg-gray-50 dark:bg-gray-700">
+          <span class="p-2 text-gray-500 dark:text-gray-300">
+            <i class="fas fa-lock"></i>
+          </span>
+          <input
+            type="password"
+            name="password1"
+            id="password1"
+            class="w-full p-2 bg-transparent outline-none dark:text-gray-200"
+            placeholder="Enter your password"
+            required
+          />
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <label for="role" class="block text-sm text-gray-600 dark:text-gray-400">Role</label>
+        <select
+          name="role"
+          id="role"
+          class="w-full p-2 bg-gray-50 border rounded-lg dark:bg-gray-700 dark:text-gray-200"
+        >
+          <option value="" disabled selected>Select Role</option>
+          <option value="student">Student</option>
+          <option value="club">Club</option>
+          <option value="mentor">Mentor</option>
+        </select>
+      </div>
+
+      <button
+        type="submit"
+        id="submitBtnSignUp"
+        class="w-full px-4 py-2 mt-6 text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+      >
+        Sign Up
+      </button>
+    </form>
+    <div class="mt-6 text-center">
+      <p class="text-sm text-gray-600 dark:text-gray-400">
+        Already have an account? 
+        <a href="{% url 'login' %}" class="text-blue-600 hover:underline">Sign in</a>
+      </p>
     </div>
   </div>
-</body>
+</div>
 {% endblock %}

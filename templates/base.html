@@ -6,62 +6,53 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% block title %}CertifyTrack{% endblock %}</title>
-  <link rel="stylesheet" href="{% static 'css/style.css' %}" />
+  <link href="{% static 'css/tailwind-built.css' %}" rel="stylesheet">
+  <script src="{% static 'js/app.js' %}" defer></script>
   <meta name="csrf-token" content="{{ csrf_token }}" />
 </head>
 
-<body>
-  {% if messages %}
-  <ul class="messages">
-    {% for message in messages %}
-    <li class="message {{ message.tags }}">{{ message }}</li>
-    {% endfor %}
-  </ul>
-  {% endif %}
-  <script>
-    // Automatically hide messages after 5 seconds
-    setTimeout(() => {
-      const messages = document.querySelectorAll(".messages .message");
-      messages.forEach((message) => {
-        message.style.transition = "opacity 0.5s ease";
-        message.style.opacity = "0";
-        setTimeout(() => message.remove(), 500); // Remove from DOM after fade out
-      });
-    }, 5000);
-  </script>
-  {% if request.resolver_match.url_name != 'landingpage' and request.resolver_match.url_name != 'login' and request.resolver_match.url_name != 'signup' %}
-  <header>
-    <nav class="navbar">
-      <a class="navbar-brand" href="{% url 'home' %}">CertifyTrack</a>
-      <button class="navbar-toggler" type="button" aria-label="Toggle navigation">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <ul class="navbar-menu">
-        <li><a href="{% url 'landingpage' %}">Home</a></li>
-
-        <li><a href="{% url 'about' %}">About</a></li>
-        <li><a href="{% url 'contact' %}">Contact</a></li>
-        <li><a href="{% url 'profile' %}">Profile</a></li>
-
-        {% if user.is_authenticated %} {% if user.profile.role == 'student' %}
-        <li><a href="{% url 'student_dashboard' %}">Dashboard</a></li>
-        {% elif user.profile.role == 'club' %}
-        <li><a href="{% url 'club_dashboard' %}">Dashboard</a></li>
-        {% elif user.profile.role == 'mentor' %}
-        <li><a href="{% url 'mentor_dashboard' %}">Dashboard</a></li>
-        {% endif %}
-        <li><a href="{% url 'logout' %}">Logout</a></li>
+<body class="bg-gray-100 text-gray-900 dark:bg-gray-900 dark:text-gray-300 flex flex-col min-h-screen">
+  <header class="bg-blue-600 dark:bg-blue-800 shadow-md sticky top-0 z-10">
+    <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+      <a href="{% url 'home' %}" class="text-white font-bold text-lg">CertifyTrack</a>
+      <nav class="space-x-4">
+        <a href="{% url 'landingpage' %}" class="text-white hover:text-gray-200">Home</a>
+        <a href="{% url 'about' %}" class="text-white hover:text-gray-200">About</a>
+        <a href="{% url 'contact' %}" class="text-white hover:text-gray-200">Contact</a>
+        {% if user.is_authenticated %}
+          <a href="{% url 'profile' %}" class="text-white hover:text-gray-200">Profile</a>
+          {% if user.profile.role == 'student' %}
+            <a href="{% url 'student_dashboard' %}" class="text-white hover:text-gray-200">Dashboard</a>
+          {% elif user.profile.role == 'club' %}
+            <a href="{% url 'club_dashboard' %}" class="text-white hover:text-gray-200">Dashboard</a>
+          {% elif user.profile.role == 'mentor' %}
+            <a href="{% url 'mentor_dashboard' %}" class="text-white hover:text-gray-200">Dashboard</a>
+          {% endif %}
+          <a href="{% url 'logout' %}" class="text-white hover:text-gray-200">Logout</a>
         {% else %}
-        <li><a href="{% url 'login' %}">Login</a></li>
-        <li><a href="{% url 'signup' %}">Sign Up</a></li>
+          <a href="{% url 'login' %}" class="text-white hover:text-gray-200">Login</a>
+          <a href="{% url 'signup' %}" class="text-white hover:text-gray-200">Sign Up</a>
         {% endif %}
-      </ul>
-    </nav>
+      </nav>
+    </div>
   </header>
-  {% endif %}
-  <main>{% block content %} {% endblock %}</main>
-  <footer>
-    <p>&copy; 2024 CertifyTrack Site. All rights reserved.</p>
+
+  <main class="container mx-auto px-4 py-6 flex-grow">
+    {% if messages %}
+      <div class="space-y-2">
+        {% for message in messages %}
+          <div class="p-3 rounded-md {{ message.tags|default:'bg-blue-200' }}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% block content %}
+    {% endblock %}
+  </main>
+
+  <footer class="bg-gray-800 text-white text-center py-4">
+    <p class="text-sm text-gray-700 dark:text-gray-400">&copy; 2024 CertifyTrack. All rights reserved.</p>
   </footer>
 </body>
 
