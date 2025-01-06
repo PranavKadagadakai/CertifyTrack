@@ -17,11 +17,11 @@
             {% if profile.role == 'student' %}
                 <li>USN: {{ profile.usn|default:"Not provided" }}</li>  <!-- Display USN only if role is student -->
             {% endif %}
-        </ul>
+        </ul><br>
         <a href="{% url 'edit_profile' %}" class="btn btn-primary">Edit Profile</a>
         {% else %}
         <p>
-            You are not logged in. Please <a href="{% url 'login' %}">log in</a> to view your profile details.
+            You are not logged in. Please <a href="{% url 'login' %}" class="btn btn-primary">log in</a> to view your profile details.
         </p>
         {% endif %}
     </div>
