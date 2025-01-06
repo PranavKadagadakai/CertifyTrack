@@ -16,7 +16,7 @@
         <tr>
             <td>{{ certificate.event.name }}</td>
             <td>
-                <a href="{% url 'view_certificate' certificate.id %}" target="_blank">View Certificate</a>
+                <a href="{% url 'view_certificate' certificate.id %}" target="_blank" class="btn btn-primary">View Certificate</a>
             </td>
         </tr>
         {% endfor %}

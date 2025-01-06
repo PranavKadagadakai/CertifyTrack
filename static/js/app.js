@@ -14,7 +14,7 @@ sign_in_btn.addEventListener("click", () => {
 
 var allValue = [
   'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
-  'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '1', '2', '3', '4', '5', 
+  'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '1', '2', '3', '4', '5',
   '6', '7', '8', '9', '0'
 ];
 
@@ -61,7 +61,7 @@ submitBtnSignUp.addEventListener("click", () => {
   const inputValue = inputCaptchaSignUp.value;
   if (inputValue === currentCaptchaSignUp) {
     alert("Sign Up Successful");
- 
+
     document.querySelector("#signUpForm").submit();
   } else if (inputValue === "") {
     alert("Invalid Captcha: Field is Empty");
@@ -69,3 +69,32 @@ submitBtnSignUp.addEventListener("click", () => {
     alert("Invalid Captcha: Try Again");
   }
 });
+
+// Toggle dropdowns
+document.querySelectorAll('[data-dropdown-toggle]').forEach((dropdown) => {
+  dropdown.addEventListener('click', () => {
+    const menu = document.getElementById(dropdown.dataset.dropdownToggle);
+    menu.classList.toggle('hidden');
+  });
+});
+
+// Dynamic modals
+document.querySelectorAll('[data-modal-toggle]').forEach((button) => {
+  button.addEventListener('click', () => {
+    const modal = document.getElementById(button.dataset.modalToggle);
+    modal.classList.toggle('hidden');
+    modal.classList.toggle('flex');
+  });
+});
+
+// Dark mode toggle
+const darkModeToggle = document.getElementById('dark-mode-toggle');
+if (darkModeToggle) {
+  darkModeToggle.addEventListener('click', () => {
+    document.documentElement.classList.toggle('dark');
+    localStorage.setItem(
+      'theme',
+      document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+    );
+  });
+}

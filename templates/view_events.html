@@ -18,7 +18,7 @@
             <td>{{ event.date }}</td>
             <td>{{ event.description }}</td>
             <td>
-                <a href="{% url 'register_for_event' event.id %}">Register</a>
+                <a href="{% url 'register_for_event' event.id %}" class="btn btn-primary">Register</a>
             </td>
         </tr>
         {% endfor %}

@@ -14,6 +14,12 @@ from django.conf import settings
 from .certificate_generator import generate_certificate
 import base64
 from django.core.files.uploadedfile import InMemoryUploadedFile
+import logging
+import os
+from django.conf import settings
+
+logger = logging.getLogger(__name__)
+
 
 """ 
 Base Link Views
@@ -334,20 +340,21 @@ def upload_participants(request, event_id):
 
 @login_required
 def generate_event_certificates(request, event_id):
-    """
-    Generate certificates for all participants of an event.
-    """
     event = get_object_or_404(Event, id=event_id)
 
-    # Ensure the user is a club admin
+    # Ensure only clubs can generate certificates
     if request.user.profile.role != 'club':
         messages.error(request, "Unauthorized access.")
         return redirect('home')
 
-    # Check if a certificate template exists
-    if not hasattr(event, 'certificate_template') or not event.certificate_template:
-        messages.error(request, "Please upload a certificate template.")
+    # Check if a certificate template exists for the event
+    if not hasattr(event, 'certificate_template') or not event.certificate_template.template_file:
+        messages.error(request, "Please upload a valid certificate template before generating certificates.")
         return redirect('upload_certificate_template', event_id=event_id)
+
+    # Load the template as binary data
+    template = event.certificate_template.template_file.read()
+    file_type = event.certificate_template.template_file.name.split('.')[-1].lower()
 
     # Get all participants for the event
     participants = Participant.objects.filter(event=event)
@@ -356,28 +363,34 @@ def generate_event_certificates(request, event_id):
         messages.error(request, "No participants found for this event.")
         return redirect('club_dashboard')
 
-    template_file = event.certificate_template.template_file.read()
-    file_type = event.certificate_template.template_file.name.split(".")[-1].lower()
-
     # Generate certificates for each participant
     for participant in participants:
         try:
-            certificate_data = generate_certificate(
-                template_file,
-                participant.student.first_name,
-                participant.student.profile.usn,
-                file_type
+            student_profile = participant.student.profile  # Get the student's profile
+            full_name = student_profile.full_name
+            usn = student_profile.usn
+
+            # Generate the certificate file
+            generated_file = generate_certificate(
+                template,
+                participant_name=full_name,
+                usn=usn,
+                file_type=file_type
             )
 
-            # Save the certificate
+            # Save the certificate to the database
             Certificate.objects.create(
                 event=event,
                 participant=participant,
-                generated_file=certificate_data
+                generated_file=generated_file
             )
         except Exception as e:
-            messages.error(request, f"Error generating certificate for {participant.student.username}: {str(e)}")
+            messages.error(request, f"Error generating certificate for {participant.student.profile.full_name}: {str(e)}")
             continue
+
+    # Mark the event as finished
+    event.status = 'finished'
+    event.save()
 
     messages.success(request, "Certificates generated successfully.")
     return redirect('club_dashboard')
@@ -627,40 +640,66 @@ def mentor_view_student_certificates(request, student_id):
 To be decided
 """
 
+# @login_required
+# def view_certificate(request, certificate_id):
+#     try:
+#         certificate = Certificate.objects.get(id=certificate_id)
+
+#         # Ensure the user is authorized to view the certificate
+#         if (
+#             request.user.profile.role == 'student' and certificate.participant.student != request.user or
+#             request.user.profile.role == 'mentor' and certificate.participant.student.profile.mentor != request.user
+#         ):
+#             return HttpResponse("Unauthorized", status=403)
+
+#         file_data = certificate.generated_file
+
+#         if not file_data:
+#             raise Http404("Certificate data not found.")
+
+#         # Determine content type
+#         if file_data.startswith(b'%PDF'):
+#             content_type = 'application/pdf'
+#         elif file_data[:3] == b'\xff\xd8\xff':  # JPEG marker
+#             content_type = 'image/jpeg'
+#         elif file_data[:8] == b'\x89PNG\r\n\x1a\n':  # PNG marker
+#             content_type = 'image/png'
+#         else:
+#             raise Http404("Unsupported file format.")
+
+#         # Serve the file
+#         response = HttpResponse(file_data, content_type=content_type)
+#         response['Content-Disposition'] = f'inline; filename="certificate_{certificate.id}.{content_type.split("/")[-1]}"'
+#         return response
+
+#     except Certificate.DoesNotExist:
+#         raise Http404("Certificate not found.")
+
 @login_required
 def view_certificate(request, certificate_id):
     """
-    Serve the certificate file for viewing.
+    Fetch and display the certificate from the 'certificates/' directory instead of the database.
     """
+    # Define the path to the 'certificates' directory
+    certificates_dir = os.path.join(settings.BASE_DIR, 'certificates')
+    
     try:
-        certificate = Certificate.objects.get(id=certificate_id)
+        # Construct the filename (assumes certificate_id corresponds to the file)
+        filename = f"{certificate_id}.pdf"  # You can change the file extension as needed
+        file_path = os.path.join(certificates_dir, filename)
 
-        # Ensure the user has permission to view the certificate
-        if (
-            request.user.profile.role == 'student'
-            and certificate.participant.student != request.user
-        ):
-            return HttpResponse("Unauthorized", status=403)
+        # Check if the file exists
+        if not os.path.exists(file_path):
+            raise Http404("Certificate file not found.")
 
-        if (
-            request.user.profile.role == 'mentor'
-            and certificate.participant.student.profile.mentor != request.user
-        ):
-            return HttpResponse("Unauthorized", status=403)
+        # Determine content type based on file extension
+        content_type = "application/pdf" if filename.endswith(".pdf") else "image/jpeg"
 
-        # Retrieve the file data
-        file_data = certificate.generated_file
-
-        # Determine content type
-        if certificate.event.certificate_template.template_file.name.endswith('.pdf'):
-            content_type = 'application/pdf'
-        else:
-            content_type = 'image/jpeg'  # Default to JPEG for images
-
-        return HttpResponse(file_data, content_type=content_type)
-    except Certificate.DoesNotExist:
-        raise Http404("Certificate not found.")
-
+        # Read and return the file
+        with open(file_path, 'rb') as file:
+            return HttpResponse(file.read(), content_type=content_type)
+    except Exception as e:
+        raise Http404(f"Error loading certificate: {str(e)}")
 
 @login_required
 def register_club(request):

@@ -23,8 +23,9 @@
                         <li>
                             <strong>{{ event.name }}</strong> ({{ event.date }}) 
                             <p>{{ event.description }}</p>
-                            <a href="{% url 'upload_participants' event.id %}" class="btn btn-secondary">Upload Participants</a>
-                            <a href="{% url 'generate_certificates' event.id %}" class="btn btn-success">Generate Certificates</a>
+                            {% comment %} <a href="{% url 'upload_participants' event.id %}" class="btn btn-primary">Upload Participants</a> {% endcomment %}
+                            <a href="{% url 'generate_certificates' event.id %}" class="btn btn-primary">Generate Certificates</a>
+                            <a href="{% url 'update_event_status' event.id %}" class="btn btn-primary">Update Event Status</a>
                         </li>
                     {% endfor %}
                 </ul>
