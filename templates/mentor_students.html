@@ -2,11 +2,28 @@
 
 {% block content %}
 <h2>Your Assigned Students</h2>
-<ul>
-    {% for student in students %}
-        <li>{{ student.full_name }} ({{ student.user.username }})</li>
-    {% empty %}
+<table>
+    <thead>
+        <tr>
+            <th>Student Name</th>
+            <th>USN</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for student in students %}
+        <tr>
+            <td>{{ student.full_name }}</td>
+            <td>{{ student.usn }}</td>
+            <td>
+                <a href="{% url 'mentor_view_certificates' student.user.id %}" class="btn btn-primary">
+                    View Certificates
+                </a>
+            </td>
+        </tr>
+        {% empty %}
         <li>No students assigned yet.</li>
-    {% endfor %}
-</ul>
+        {% endfor %}
+    </tbody>
+</table>
 {% endblock %}

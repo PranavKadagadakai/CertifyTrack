@@ -26,31 +26,22 @@ class EventForm(forms.ModelForm):
     class Meta:
         model = Event
         fields = ['name', 'date', 'description', 'club', 'status', 'aicte_points', 'participant_limit', 'certificate_template']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'input-field'}),
+            'date': forms.DateInput(attrs={'class': 'input-field', 'type': 'date'}),
+            'description': forms.Textarea(attrs={'class': 'input-field'}),
+            'status': forms.Select(attrs={'class': 'input-field'}),
+        }
         
-# class ProfileForm(forms.ModelForm):
-#     class Meta:
-#         model = Profile
-#         fields = ['phone', 'address', 'usn']
-#         widgets = {
-#             'usn': forms.TextInput(attrs={'placeholder': 'Enter USN, e.g., 2GI22IS001'}),
-#         }
-
-#     def clean_usn(self):
-#         usn = self.cleaned_data.get('usn')
-#         role = self.cleaned_data.get('role')
-
-#         if role == 'student' and usn:
-#             pattern = r"^\d{2}[A-Z]{2}\d{2}[A-Z]{2}\d{3}$"
-#             if not re.match(pattern, usn):
-#                 raise forms.ValidationError("USN must follow the format: 2GI22IS001.")
-#         return usn
-
 class ProfileEditForm(forms.ModelForm):
     class Meta:
         model = Profile
         fields = ['full_name', 'phone', 'address', 'usn']
         widgets = {
-            'address': forms.Textarea(attrs={'rows': 3, 'cols': 20}),
+            'full_name': forms.TextInput(attrs={'class': 'input-field'}),
+            'phone': forms.TextInput(attrs={'class': 'input-field'}),
+            'address': forms.Textarea(attrs={'class': 'input-field'}),
+            'usn': forms.TextInput(attrs={'class': 'input-field'}),
         }
 
     def __init__(self, *args, **kwargs):
