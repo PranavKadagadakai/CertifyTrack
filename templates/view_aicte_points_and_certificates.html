@@ -4,24 +4,28 @@
 <h3>Certificates</h3>
 
 {% if certificates %}
-<table>
-    <thead>
+<div class="overflow-x-auto mt-4">
+    <table class="min-w-full table-auto bg-white dark:bg-gray-800 border border-gray-300 rounded-lg shadow-md">
+        <thead class="bg-gray-200 dark:bg-gray-700">
         <tr>
-            <th>Event</th>
-            <th>Certificate</th>
+            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">Event</th>
+            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">Certificate</th>
         </tr>
     </thead>
     <tbody>
         {% for certificate in certificates %}
-        <tr>
-            <td>{{ certificate.event.name }}</td>
-            <td>
-                <a href="{% url 'view_certificate' certificate.id %}" target="_blank" class="btn btn-primary">View Certificate</a>
+        <tr class="border-b border-gray-300 even:bg-gray-50 dark:even:bg-gray-700">
+            <td class="px-4 py-2 text-gray-800 dark:text-gray-200">
+                {{ certificate.event.name }}
+            </td>
+            <td class="px-4 py-2 text-gray-800 dark:text-gray-200">
+                <a href="{% url 'view_certificate' 6 %}" target="_blank" class="btn btn-primary">View Certificate</a>
             </td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+</div>
 {% else %}
 <p>No certificates available.</p>
 {% endif %}
