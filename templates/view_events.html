@@ -2,28 +2,30 @@
 {% block content %}
 <h2>Available Events</h2>
 {% if events %}
-<table>
-    <thead>
+<div class="overflow-x-auto mt-4">
+    <table class="min-w-full table-auto bg-white dark:bg-gray-800 border border-gray-300 rounded-lg shadow-md">
+        <thead class="bg-gray-200 dark:bg-gray-700">
         <tr>
-            <th>Name</th>
-            <th>Date</th>
-            <th>Description</th>
-            <th>Action</th>
+            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">Name</th>
+            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">Date</th>
+            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">Description</th>
+            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">Action</th>
         </tr>
     </thead>
     <tbody>
         {% for event in events %}
-        <tr>
-            <td>{{ event.name }}</td>
-            <td>{{ event.date }}</td>
-            <td>{{ event.description }}</td>
-            <td>
+        <tr class="border-b border-gray-300 even:bg-gray-50 dark:even:bg-gray-700">
+            <td class="px-4 py-2 text-gray-800 dark:text-gray-200">{{ event.name }}</td>
+            <td class="px-4 py-2 text-gray-800 dark:text-gray-200">{{ event.date }}</td>
+            <td class="px-4 py-2 text-gray-800 dark:text-gray-200">{{ event.description }}</td>
+            <td class="px-4 py-2 text-gray-800 dark:text-gray-200">
                 <a href="{% url 'register_for_event' event.id %}" class="btn btn-primary">Register</a>
             </td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+</div>
 {% else %}
 <p>No events available for registration.</p>
 {% endif %}

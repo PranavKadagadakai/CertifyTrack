@@ -5,19 +5,20 @@
 <form method="post">
     {% csrf_token %}
     <label for="students">Select Students:</label>
-    <select name="students" multiple>
+    <select name="students" class="w-full p-2 bg-gray-50 border rounded-lg dark:bg-gray-700 dark:text-gray-200" multiple>
         {% for student in students %}
             <option value="{{ student.user.id }}">{{ student.full_name }}</option>
         {% endfor %}
     </select>
 
     <label for="event">Select Event:</label>
-    <select name="event">
+    <select name="event" class="w-full p-2 bg-gray-50 border rounded-lg dark:bg-gray-700 dark:text-gray-200">
         {% for event in events %}
             <option value="{{ event.id }}">{{ event.name }}</option>
         {% endfor %}
     </select>
 
-    <button type="submit">Assign</button>
+    <br><br>
+    <button type="submit" class="btn btn-primary">Assign</button>
 </form>
 {% endblock %}

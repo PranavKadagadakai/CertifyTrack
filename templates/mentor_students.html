@@ -2,28 +2,33 @@
 
 {% block content %}
 <h2>Your Assigned Students</h2>
-<table>
-    <thead>
+
+{% if students %}
+<div class="overflow-x-auto mt-4">
+<table class="min-w-full table-auto bg-white dark:bg-gray-800 border border-gray-300 rounded-lg shadow-md">
+    <thead class="bg-gray-200 dark:bg-gray-700">
         <tr>
-            <th>Student Name</th>
-            <th>USN</th>
-            <th>Actions</th>
+            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">Student Name</th>
+            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">USN</th>
+            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">Actions</th>
         </tr>
     </thead>
     <tbody>
         {% for student in students %}
-        <tr>
-            <td>{{ student.full_name }}</td>
-            <td>{{ student.usn }}</td>
+        <tr class="border-b border-gray-300 even:bg-gray-50 dark:even:bg-gray-700">
+            <td class="px-4 py-2 text-gray-800 dark:text-gray-200">{{ student.full_name }}</td>
+            <td class="px-4 py-2 text-gray-800 dark:text-gray-200">{{ student.usn }}</td>
             <td>
                 <a href="{% url 'mentor_view_certificates' student.user.id %}" class="btn btn-primary">
                     View Certificates
                 </a>
             </td>
         </tr>
-        {% empty %}
-        <li>No students assigned yet.</li>
         {% endfor %}
     </tbody>
 </table>
+</div>
+{% else %}
+<p>No students assigned yet.</p>
+{% endif%}
 {% endblock %}

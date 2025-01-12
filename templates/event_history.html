@@ -2,24 +2,26 @@
 {% block content %}
 <h2>Your Event History</h2>
 {% if participated_events %}
-<table>
-    <thead>
+<div class="overflow-x-auto mt-4">
+    <table class="min-w-full table-auto bg-white dark:bg-gray-800 border border-gray-300 rounded-lg shadow-md">
+        <thead class="bg-gray-200 dark:bg-gray-700">
         <tr>
-            <th>Event</th>
-            <th>Date</th>
-            <th>AICTE Points</th>
+            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">Event</th>
+            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">Date</th>
+            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">AICTE Points</th>
         </tr>
     </thead>
     <tbody>
         {% for record in participated_events %}
-        <tr>
-            <td>{{ record.event.name }}</td>
-            <td>{{ record.event.date }}</td>
-            <td>{{ record.event.aicte_points }}</td>
+        <tr class="border-b border-gray-300 even:bg-gray-50 dark:even:bg-gray-700">
+            <td class="px-4 py-2 text-gray-800 dark:text-gray-200">{{ record.event.name }}</td>
+            <td class="px-4 py-2 text-gray-800 dark:text-gray-200">{{ record.event.date }}</td>
+            <td class="px-4 py-2 text-gray-800 dark:text-gray-200">{{ record.event.aicte_points }}</td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+</div>
 {% else %}
 <p>You have not participated in any events yet.</p>
 {% endif %}
