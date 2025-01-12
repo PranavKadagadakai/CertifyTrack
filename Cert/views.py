@@ -196,7 +196,7 @@ def signup_view(request):
         # Assign role to profile
         profile, created = Profile.objects.get_or_create(user=user)
         profile.role = role
-        # profile.save()
+        profile.save()
         
         if role == 'club':
             # Create a Club instance for the user
