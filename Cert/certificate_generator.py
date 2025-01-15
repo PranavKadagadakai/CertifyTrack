@@ -53,3 +53,10 @@ def generate_certificate(template, participant_name, usn=None, file_type="pdf"):
         return generate_pdf_certificate(template, participant_name, usn)
     else:
         raise ValueError(f"Unsupported template file type: {file_type}")
+
+if __name__ == "__main__":
+    print("Hello!")
+    temp_file_path: str = "/home/pranav/Downloads/Temp/template.pdf"
+    participant_name: str = "PRANAV S KADAGADAKAI"
+    
+    generate_certificate(template=temp_file_path, participant_name=participant_name)   

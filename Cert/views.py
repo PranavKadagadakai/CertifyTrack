@@ -640,66 +640,66 @@ def mentor_view_student_certificates(request, student_id):
 To be decided
 """
 
-# @login_required
-# def view_certificate(request, certificate_id):
-#     try:
-#         certificate = Certificate.objects.get(id=certificate_id)
-
-#         # Ensure the user is authorized to view the certificate
-#         if (
-#             request.user.profile.role == 'student' and certificate.participant.student != request.user or
-#             request.user.profile.role == 'mentor' and certificate.participant.student.profile.mentor != request.user
-#         ):
-#             return HttpResponse("Unauthorized", status=403)
-
-#         file_data = certificate.generated_file
-
-#         if not file_data:
-#             raise Http404("Certificate data not found.")
-
-#         # Determine content type
-#         if file_data.startswith(b'%PDF'):
-#             content_type = 'application/pdf'
-#         elif file_data[:3] == b'\xff\xd8\xff':  # JPEG marker
-#             content_type = 'image/jpeg'
-#         elif file_data[:8] == b'\x89PNG\r\n\x1a\n':  # PNG marker
-#             content_type = 'image/png'
-#         else:
-#             raise Http404("Unsupported file format.")
-
-#         # Serve the file
-#         response = HttpResponse(file_data, content_type=content_type)
-#         response['Content-Disposition'] = f'inline; filename="certificate_{certificate.id}.{content_type.split("/")[-1]}"'
-#         return response
-
-#     except Certificate.DoesNotExist:
-#         raise Http404("Certificate not found.")
-
 @login_required
 def view_certificate(request, certificate_id):
-    """
-    Fetch and display the certificate from the 'certificates/' directory instead of the database.
-    """
-    # Define the path to the 'certificates' directory
-    certificates_dir = os.path.join(settings.BASE_DIR, 'certificates')
-    
     try:
-        # Construct the filename (assumes certificate_id corresponds to the file)
-        filename = f"{certificate_id}.pdf"  # You can change the file extension as needed
-        file_path = os.path.join(certificates_dir, filename)
+        certificate = Certificate.objects.get(id=certificate_id)
 
-        # Check if the file exists
-        if not os.path.exists(file_path):
-            raise Http404("Certificate file not found.")
+        # Ensure the user is authorized to view the certificate
+        if (
+            request.user.profile.role == 'student' and certificate.participant.student != request.user or
+            request.user.profile.role == 'mentor' and certificate.participant.student.profile.mentor != request.user
+        ):
+            return HttpResponse("Unauthorized", status=403)
 
-        # Determine content type based on file extension
-        content_type = "application/pdf" if filename.endswith(".pdf") else "image/jpeg"
+        file_data = certificate.generated_file
 
-        # Read and return the file
-        with open(file_path, 'rb') as file:
-            return HttpResponse(file.read(), content_type=content_type)
-    except Exception as e:
-        raise Http404(f"Error loading certificate: {str(e)}")
+        if not file_data:
+            raise Http404("Certificate data not found.")
+
+        # Determine content type
+        if file_data.startswith(b'%PDF'):
+            content_type = 'application/pdf'
+        elif file_data[:3] == b'\xff\xd8\xff':  # JPEG marker
+            content_type = 'image/jpeg'
+        elif file_data[:8] == b'\x89PNG\r\n\x1a\n':  # PNG marker
+            content_type = 'image/png'
+        else:
+            raise Http404("Unsupported file format.")
+
+        # Serve the file
+        response = HttpResponse(file_data, content_type=content_type)
+        response['Content-Disposition'] = f'inline; filename="certificate_{certificate.id}.{content_type.split("/")[-1]}"'
+        return response
+
+    except Certificate.DoesNotExist:
+        raise Http404("Certificate not found.")
+
+# @login_required
+# def view_certificate(request, certificate_id):
+#     """
+#     Fetch and display the certificate from the 'certificates/' directory instead of the database.
+#     """
+#     # Define the path to the 'certificates' directory
+#     certificates_dir = os.path.join(settings.BASE_DIR, 'certificates')
+    
+#     try:
+#         # Construct the filename (assumes certificate_id corresponds to the file)
+#         filename = f"{certificate_id}.pdf"  # You can change the file extension as needed
+#         file_path = os.path.join(certificates_dir, filename)
+
+#         # Check if the file exists
+#         if not os.path.exists(file_path):
+#             raise Http404("Certificate file not found.")
+
+#         # Determine content type based on file extension
+#         content_type = "application/pdf" if filename.endswith(".pdf") else "image/jpeg"
+
+#         # Read and return the file
+#         with open(file_path, 'rb') as file:
+#             return HttpResponse(file.read(), content_type=content_type)
+#     except Exception as e:
+#         raise Http404(f"Error loading certificate: {str(e)}")
 
 @login_required
 def register_club(request):
