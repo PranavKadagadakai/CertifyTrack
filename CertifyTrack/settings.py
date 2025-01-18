@@ -138,3 +138,7 @@ SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
 SESSION_COOKIE_SECURE = False  # Set True in production
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
+# File Storage
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

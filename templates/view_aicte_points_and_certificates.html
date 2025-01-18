@@ -19,7 +19,7 @@
                 {{ certificate.event.name }}
             </td>
             <td class="px-4 py-2 text-gray-800 dark:text-gray-200">
-                <a href="{% url 'view_certificate' 6 %}" target="_blank" class="btn btn-primary">View Certificate</a>
+                <a href="{% url 'view_certificate' certificate.id %}" target="_blank" class="btn btn-primary">View Certificate</a>
             </td>
         </tr>
         {% endfor %}
