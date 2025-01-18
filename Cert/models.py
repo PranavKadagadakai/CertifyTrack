@@ -98,32 +98,31 @@ class CertificateTemplate(models.Model):
         null=True,
         blank=True,
     )
-    template_file = models.FileField(upload_to='certificate_templates/%Y/%m/%d/')
+    template_file = models.FileField(upload_to='certificate_templates/%Y/%m/%d/')  # File path for templates
+    template_type = models.CharField(
+        max_length=10,
+        choices=[('pdf', 'PDF'), ('image', 'Image')],
+        default='pdf',
+        help_text='Type of the template (PDF or Image)',
+    )
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Template for {self.event.name if self.event else 'No Event Assigned'}"
 
-
-
 # Certificate Model
 class Certificate(models.Model):
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='certificates')
     participant = models.ForeignKey(Participant, on_delete=models.CASCADE, default=None, null=True, related_name='certificate')
-    generated_file = models.BinaryField(default=b'')  # Store binary data for the certificate
+    certificate_file = models.FileField(
+        upload_to='generated_certificates/%Y/%m/%d/', 
+        default='generated_certificates/default.pdf',  # Default file path
+        blank=True
+    )  # File path for certificates
     generated_at = models.DateTimeField(auto_now_add=True)
     verified = models.BooleanField(default=False)
-    
-    def is_pdf(self):
-        # Check the first few bytes of the binary data (PDF files start with "%PDF")
-        if self.event.certificate_template.template_file[:4] == b'%PDF':
-            return True
-        return False
-    
+
     def __str__(self):
         if self.participant:
             return f"Certificate for {self.participant.student.username} - {self.event.name}"
         return f"Certificate for Unknown Participant - {self.event.name}"
-
-    def __str__(self):
-        return f"Certificate for {self.participant.student.username} - {self.event.name}"
