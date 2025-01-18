@@ -7,16 +7,22 @@ from django.core.exceptions import ValidationError
 import re
 from Cert.models import Profile, Event, CertificateTemplate, Club, Certificate, Participant
 import csv
-from django.http import HttpResponse, Http404
+from django.http import HttpResponse, Http404, FileResponse
 from Cert.forms import ClubCreationForm, EventForm, ProfileEditForm, ParticipantUploadForm, AssignStudentsForm, CertificateTemplateForm
 from django.core.mail import send_mail
 from django.conf import settings
-from .certificate_generator import generate_certificate
+# from .certificate_generator import generate_certificate
 import base64
 from django.core.files.uploadedfile import InMemoryUploadedFile
 import logging
 import os
 from django.conf import settings
+import tempfile
+from io import BytesIO
+from PIL import Image, ImageDraw, ImageFont
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from PyPDF2 import PdfWriter, PdfReader
 
 logger = logging.getLogger(__name__)
 
@@ -342,59 +348,131 @@ def upload_participants(request, event_id):
 def generate_event_certificates(request, event_id):
     event = get_object_or_404(Event, id=event_id)
 
-    # Ensure only clubs can generate certificates
+    # Ensure only club users can generate certificates
     if request.user.profile.role != 'club':
         messages.error(request, "Unauthorized access.")
         return redirect('home')
 
-    # Check if a certificate template exists for the event
-    if not hasattr(event, 'certificate_template') or not event.certificate_template.template_file:
-        messages.error(request, "Please upload a valid certificate template before generating certificates.")
+    # Check if the certificate template exists
+    if not event.certificate_template or not event.certificate_template.template_file:
+        messages.error(request, "Please upload a certificate template before generating certificates.")
         return redirect('upload_certificate_template', event_id=event_id)
 
-    # Load the template as binary data
-    template = event.certificate_template.template_file.read()
-    file_type = event.certificate_template.template_file.name.split('.')[-1].lower()
+    # Get template file and file type
+    template_file = event.certificate_template.template_file
+    file_type = template_file.name.split('.')[-1].lower()  # Extract file extension
+    template_path = os.path.join(settings.MEDIA_ROOT, template_file.name)
 
-    # Get all participants for the event
+    # Debugging: Check template path
+    print(f"Template Path: {template_path}")
+
+    # Read participants for the event
     participants = Participant.objects.filter(event=event)
 
     if not participants.exists():
         messages.error(request, "No participants found for this event.")
         return redirect('club_dashboard')
 
-    # Generate certificates for each participant
-    for participant in participants:
-        try:
-            student_profile = participant.student.profile  # Get the student's profile
-            full_name = student_profile.full_name
-            usn = student_profile.usn
+    # Create a temporary directory to store the generated certificates
+    temp_dir = tempfile.mkdtemp()
 
-            # Generate the certificate file
-            generated_file = generate_certificate(
-                template,
-                participant_name=full_name,
-                usn=usn,
-                file_type=file_type
-            )
+    try:
+        for participant in participants:
+            try:
+                # Debug: Ensure participant is an instance of Participant
+                print(f"Processing participant: {participant} (ID: {participant.id})")
 
-            # Save the certificate to the database
-            Certificate.objects.create(
-                event=event,
-                participant=participant,
-                generated_file=generated_file
-            )
-        except Exception as e:
-            messages.error(request, f"Error generating certificate for {participant.student.profile.full_name}: {str(e)}")
-            continue
+                # Get participant details
+                student_profile = participant.student.profile  # Get the student's profile
+                full_name = student_profile.full_name
+                usn = student_profile.usn
 
-    # Mark the event as finished
-    event.status = 'finished'
-    event.save()
+                # Debug: Check participant details
+                print(f"Participant Name: {full_name}, USN: {usn}")
 
-    messages.success(request, "Certificates generated successfully.")
+                # Prepare paths for template and output
+                output_path = os.path.join(temp_dir, f"certificate_{participant.id}.{file_type}")
+
+                # Handle PDF templates
+                if file_type == "pdf":
+                    # Read the existing PDF template
+                    with open(template_path, "rb") as pdf_file:
+                        pdf_reader = PdfReader(pdf_file)
+                        pdf_writer = PdfWriter()
+
+                        # Go through each page of the PDF template
+                        for page in pdf_reader.pages:
+                            packet = BytesIO()
+                            can = canvas.Canvas(packet, pagesize=letter)
+
+                            # Add participant details on top of the existing template
+                            can.setFont("Helvetica-Bold", 14)
+                            can.drawString(200, 300, f"Name: {full_name}")
+                            if usn:
+                                can.drawString(200, 270, f"USN: {usn}")
+                            can.save()
+
+                            # Merge the new content with the existing page
+                            packet.seek(0)
+                            new_pdf = PdfReader(packet)
+                            page.merge_page(new_pdf.pages[0])
+                            pdf_writer.add_page(page)
+
+                        # Write the final PDF to the output path
+                        with open(output_path, "wb") as output_pdf:
+                            pdf_writer.write(output_pdf)
+
+                # Handle image templates
+                elif file_type in ["png", "jpg", "jpeg"]:
+                    with Image.open(template_path) as img:
+                        draw = ImageDraw.Draw(img)
+                        font = ImageFont.truetype("arial.ttf", 40)  # Ensure you have the font installed or update the path
+
+                        # Positioning for text (adjust coordinates for your template)
+                        draw.text((300, 200), full_name, font=font, fill="black")
+                        if usn:
+                            draw.text((300, 250), usn, font=font, fill="black")
+
+                        img.save(output_path)  # Save the image to the output path
+
+                else:
+                    raise ValueError(f"Unsupported template file type: {file_type}")
+
+                # Save the generated certificate to the database
+                # Upload the generated certificate to the 'certificate_file' field
+                with open(output_path, 'rb') as cert_file:
+                    Certificate.objects.create(
+                        event=event,
+                        participant=participant,
+                        certificate_file=f'generated_certificates/{participant.id}.{file_type}'
+                    )
+                    # Save the file to the media directory
+                    certificate_media_path = os.path.join(
+                        settings.MEDIA_ROOT, f'generated_certificates/{participant.id}.{file_type}'
+                    )
+                    with open(certificate_media_path, 'wb') as dest:
+                        dest.write(cert_file.read())
+
+            except Exception as e:
+                # Debugging: Print error details
+                print(f"Error generating certificate for {participant.student.username}: {str(e)}")
+                messages.error(request, f"Error generating certificate for {participant.student.profile.full_name}: {str(e)}")
+                continue
+
+        # Mark the event as finished
+        event.status = 'finished'
+        event.save()
+
+        messages.success(request, "Certificates generated successfully.")
+    finally:
+        # Clean up the temporary directory
+        if os.path.exists(temp_dir):
+            for file_name in os.listdir(temp_dir):
+                file_path = os.path.join(temp_dir, file_name)
+                os.remove(file_path)
+            os.rmdir(temp_dir)
+
     return redirect('club_dashboard')
-
 
 @login_required
 def update_profile(request):
@@ -652,10 +730,12 @@ def view_certificate(request, certificate_id):
         ):
             return HttpResponse("Unauthorized", status=403)
 
-        file_data = certificate.generated_file
+        # Get the file path for the certificate
+        certificate_path = certificate.certificate_file.path
 
-        if not file_data:
-            raise Http404("Certificate data not found.")
+        # Read the file from the file system
+        with open(certificate_path, 'rb') as cert_file:
+            file_data = cert_file.read()
 
         # Determine content type
         if file_data.startswith(b'%PDF'):
@@ -674,32 +754,8 @@ def view_certificate(request, certificate_id):
 
     except Certificate.DoesNotExist:
         raise Http404("Certificate not found.")
-
-# @login_required
-# def view_certificate(request, certificate_id):
-#     """
-#     Fetch and display the certificate from the 'certificates/' directory instead of the database.
-#     """
-#     # Define the path to the 'certificates' directory
-#     certificates_dir = os.path.join(settings.BASE_DIR, 'certificates')
-    
-#     try:
-#         # Construct the filename (assumes certificate_id corresponds to the file)
-#         filename = f"{certificate_id}.pdf"  # You can change the file extension as needed
-#         file_path = os.path.join(certificates_dir, filename)
-
-#         # Check if the file exists
-#         if not os.path.exists(file_path):
-#             raise Http404("Certificate file not found.")
-
-#         # Determine content type based on file extension
-#         content_type = "application/pdf" if filename.endswith(".pdf") else "image/jpeg"
-
-#         # Read and return the file
-#         with open(file_path, 'rb') as file:
-#             return HttpResponse(file.read(), content_type=content_type)
-#     except Exception as e:
-#         raise Http404(f"Error loading certificate: {str(e)}")
+    except FileNotFoundError:
+        raise Http404("Certificate file not found.")
 
 @login_required
 def register_club(request):
