@@ -1,23 +1,96 @@
 {% extends 'base.html' %}
-{% block title %}Landing Page{% endblock %}
+{% block title %}Welcome to CertifyTrack{% endblock %}
+
 {% block content %}
-<section class="landing-section">
-    <div class="container">
-        <h1>Welcome to CertifyTrack</h1>
+<section class="bg-blue-600 text-white py-20">
+    <div class="container mx-auto text-center">
+        <h1 class="text-4xl font-bold">Effortless Certificate Management</h1>
+        <p class="mt-4 text-lg max-w-2xl mx-auto">
+            CertifyTrack simplifies event-based certification, helping institutions and organizations manage and verify certificates seamlessly.
+        </p>
         {% if not user.is_authenticated %}
-        <p>Please log in or sign up to access your dashboard.</p><br>
-        <div class="auth-buttons">
-            <a href="{% url 'login' %}" class="btn btn-primary">Log In</a>
-            <a href="{% url 'signup' %}" class="btn btn-primary">Sign Up</a>
+        <div class="mt-6 space-x-4">
+            <a href="{% url 'signup' %}" class="bg-white text-blue-600 px-6 py-3 rounded-lg shadow-md font-semibold hover:bg-gray-100">Get Started</a>
+            <a href="{% url 'login' %}" class="bg-blue-500 text-white px-6 py-3 rounded-lg shadow-md font-semibold hover:bg-blue-700">Log In</a>
         </div>
+        <br>
         {% else %}
-        <p>You are already logged in. Redirecting to your dashboard...</p>
+        <p class="mt-6">You are already logged in. Redirecting to your dashboard...</p>
         <script>
             setTimeout(() => {
                 window.location.href = "{% url 'home' %}";
-            }, 2000); // Redirect after 2 seconds
+            }, 2000);
         </script>
         {% endif %}
     </div>
 </section>
+
+<!-- Key Features -->
+<section class="py-16 bg-gray-100">
+    <div class="container mx-auto text-center">
+        <h2 class="text-3xl font-semibold text-gray-800">Why Choose CertifyTrack?</h2>
+        <p class="text-gray-600 mt-4 max-w-xl mx-auto">
+            Designed for educational institutions, clubs, and event organizers, CertifyTrack ensures a seamless certification experience.
+        </p>
+
+        <div class="grid md:grid-cols-3 gap-8 mt-10">
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <i class="fas fa-user-graduate text-blue-600 text-4xl"></i>
+                <h3 class="text-xl font-semibold mt-4">Automated Certificate Generation</h3>
+                <p class="text-gray-600 mt-2">Generate AICTE-compliant certificates instantly upon event completion.</p>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <i class="fas fa-certificate text-blue-600 text-4xl"></i>
+                <h3 class="text-xl font-semibold mt-4">Easy Verification</h3>
+                <p class="text-gray-600 mt-2">Mentors and institutions can verify certificates with a single click.</p>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <i class="fas fa-file-alt text-blue-600 text-4xl"></i>
+                <h3 class="text-xl font-semibold mt-4">Secure Storage</h3>
+                <p class="text-gray-600 mt-2">All certificates are securely stored and accessible anytime.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Testimonials -->
+<section class="py-16 bg-white">
+    <div class="container mx-auto text-center">
+        <br>
+        <h2 class="text-3xl font-semibold text-gray-800">What Our Users Say</h2>
+        <p class="text-gray-600 mt-4 max-w-xl mx-auto">Hear from students, mentors, and institutions using CertifyTrack.</p>
+
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mt-10">
+            <div class="bg-gray-100 p-6 rounded-lg shadow-md">
+                <p class="text-gray-700">"CertifyTrack has made event certification effortless! I can now download my certificates instantly!"</p>
+                <h4 class="font-semibold mt-4 text-blue-600">– Rahul Sharma, Student</h4>
+            </div>
+
+            <div class="bg-gray-100 p-6 rounded-lg shadow-md">
+                <p class="text-gray-700">"Managing events has never been easier. Certificate generation is smooth and quick!"</p>
+                <h4 class="font-semibold mt-4 text-blue-600">– Dr. Priya Menon, Club Coordinator</h4>
+            </div>
+
+            <div class="bg-gray-100 p-6 rounded-lg shadow-md">
+                <p class="text-gray-700">"The verification system ensures authenticity and trust in every certificate we issue."</p>
+                <h4 class="font-semibold mt-4 text-blue-600">– Kiran Kumar, Mentor</h4>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Call to Action -->
+<section class="bg-blue-600 text-white py-16">
+    <div class="container mx-auto text-center">
+        <h2 class="text-3xl font-semibold">Start Managing Your Certificates Today!</h2>
+        <p class="mt-4 max-w-xl mx-auto">Sign up now and experience the future of certificate management.</p>
+        <div class="mt-6">
+            <a href="{% url 'signup' %}" class="bg-white text-blue-600 px-6 py-3 rounded-lg shadow-md font-semibold hover:bg-gray-100">Sign Up Now</a>
+        </div>
+        <br>
+    </div>
+</section>
+
 {% endblock %}
