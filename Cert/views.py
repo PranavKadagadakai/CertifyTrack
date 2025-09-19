@@ -587,6 +587,8 @@ def mentor_dashboard(request):
     # Check if the logged-in user is a mentor
     if not hasattr(request.user, 'profile') or request.user.profile.role != 'mentor':
         return HttpResponseForbidden("Access denied.")
+    
+    profile = request.user.profile
 
     # Get the students assigned to the mentor (as Profiles)
     students = Profile.objects.filter(role='student', mentor=request.user)
@@ -600,6 +602,7 @@ def mentor_dashboard(request):
     return render(request, 'mentor_dashboard.html', {
         'students': students,
         'certificates': certificates,
+        'profile': profile
     })
 
 @login_required

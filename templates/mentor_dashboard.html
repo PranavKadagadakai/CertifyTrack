@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Welcome, {{ request.full_name }}!</h2>
+<h2>Welcome, {{ profile.full_name }}!</h2>
 <p>Here are some options for you:</p><br>
 <ul>
     <li><a href="{% url 'mentor_students' %}" class="btn btn-primary">View Assigned Students</a></li><br>
