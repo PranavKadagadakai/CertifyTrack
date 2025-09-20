@@ -3,7 +3,7 @@ import api from "../api";
 import { useAuth } from "../context/AuthContext";
 
 function ProfilePage() {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const [profile, setProfile] = useState({ full_name: "", usn: "" });
   const [loading, setLoading] = useState(true);
 
@@ -30,6 +30,11 @@ function ProfilePage() {
       .patch("/profile/", { full_name: profile.full_name, usn: profile.usn })
       .then((res) => {
         setProfile(res.data);
+        // Optionally update user context
+        setUser((prev) => ({
+          ...prev,
+          profile: { ...prev.profile, ...res.data },
+        }));
         alert("Profile updated successfully!");
       })
       .catch((err) => alert("Failed to update profile."));
@@ -59,7 +64,7 @@ function ProfilePage() {
               className="w-full px-3 py-2 mt-1 border rounded-md"
             />
           </div>
-          {user.profile.role === "student" && (
+          {user.profile?.role === "student" && (
             <div>
               <label className="block text-sm font-medium">USN</label>
               <input

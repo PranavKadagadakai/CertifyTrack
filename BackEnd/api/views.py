@@ -4,7 +4,6 @@ from rest_framework import generics, viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
@@ -22,27 +21,14 @@ from reportlab.lib.pagesizes import letter
 from PyPDF2 import PdfWriter, PdfReader
 from PIL import Image, ImageDraw, ImageFont
 from django.core.files.base import ContentFile
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 # --- RegisterView, LoginView (No Changes) ---
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = (AllowAny,)
     serializer_class = RegisterSerializer
-
-class LoginView(generics.GenericAPIView):
-    permission_classes = (AllowAny,)
-    
-    def post(self, request, *args, **kwargs):
-        username = request.data.get("username")
-        password = request.data.get("password")
-        user = authenticate(username=username, password=password)
-        if user:
-            token, _ = Token.objects.get_or_create(user=user)
-            return Response({
-                "token": token.key,
-                "user": UserSerializer(user).data
-            })
-        return Response({"error": "Invalid Credentials"}, status=status.HTTP_400_BAD_REQUEST)
 
 # --- ProfileView (Updated to use ProfileSerializer for updates) ---
 class ProfileView(generics.RetrieveUpdateAPIView):
@@ -251,3 +237,19 @@ class MentorViewSet(viewsets.ViewSet):
 
         except User.DoesNotExist:
             return Response({'error': 'Student not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+# --- Custom Token Obtainment (NEW) ---
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        # Add custom claims if needed
+        return token
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        data['user'] = UserSerializer(self.user).data
+        return data
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer

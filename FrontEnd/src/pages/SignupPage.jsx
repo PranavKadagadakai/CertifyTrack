@@ -10,7 +10,7 @@ function SignupPage() {
   const [role, setRole] = useState("student");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const { signup } = useAuth();
+  const { register } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -19,10 +19,11 @@ function SignupPage() {
     setSuccess("");
     try {
       const userData = { username, email, password, full_name: fullName, role };
-      await signup(userData);
+      await register(userData);
       setSuccess("Registration successful! Please log in.");
       setTimeout(() => navigate("/login"), 2000);
     } catch (err) {
+      console.error(err);
       const errorData = err.response?.data;
       if (errorData) {
         const messages = Object.values(errorData).flat().join(" ");

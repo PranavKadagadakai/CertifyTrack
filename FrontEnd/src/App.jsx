@@ -41,8 +41,8 @@ function HomeRedirect() {
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
+    <Router>
+      <AuthProvider>
         <Navbar />
         <main className="container mx-auto px-4 py-8">
           <Routes>
@@ -95,8 +95,8 @@ function App() {
             />
           </Routes>
         </main>
-      </Router>
-    </AuthProvider>
+      </AuthProvider>
+    </Router>
   );
 }
 
