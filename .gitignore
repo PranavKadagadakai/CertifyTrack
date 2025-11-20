@@ -12,3 +12,4 @@ db.sqlite3
 .vscode/
 pranavkadagadakai-certifytrack.txt
 CertifyTrack_SRSV1.md
+certifytrack_schema.sql

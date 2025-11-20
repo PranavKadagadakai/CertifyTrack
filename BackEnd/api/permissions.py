@@ -1,19 +1,13 @@
-from rest_framework import permissions
+from rest_framework.permissions import BasePermission
 
-class IsOwnerOrReadOnly(permissions.BasePermission):
-    def has_object_permission(self, request, view, obj):
-        if request.method in permissions.SAFE_METHODS:
-            return True
-        return obj.user == request.user
-
-class IsClubAdmin(permissions.BasePermission):
+class IsClubAdmin(BasePermission):
     def has_permission(self, request, view):
-        return request.user.profile.role == 'club'
+        return request.user.is_authenticated and request.user.user_type == 'club_organizer'
 
-class IsStudent(permissions.BasePermission):
+class IsStudent(BasePermission):
     def has_permission(self, request, view):
-        return request.user.profile.role == 'student'
+        return request.user.is_authenticated and request.user.user_type == 'student'
 
-class IsMentor(permissions.BasePermission):
+class IsMentor(BasePermission):
     def has_permission(self, request, view):
-        return request.user.profile.role == 'mentor'
+        return request.user.is_authenticated and request.user.user_type == 'mentor'
