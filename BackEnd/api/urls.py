@@ -2,11 +2,11 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
-    RegisterView, ProfileView, EventViewSet, 
-    CertificateViewSet, ClubViewSet, HallViewSet, 
+    RegisterView, ProfileView, EventViewSet,
+    CertificateViewSet, ClubViewSet, HallViewSet,
     HallBookingViewSet, AICTECategoryViewSet, AICTEPointTransactionViewSet,
     NotificationViewSet, event_statistics, AuditLogViewSet, get_user_profile,
-    register_user
+    register_user, aicte_summary, mentor_dashboard, certificate_verify
 )
 
 router = DefaultRouter()
@@ -28,4 +28,7 @@ urlpatterns = [
     path('reports/event-statistics/', event_statistics, name='event-statistics'),
     path('auth/profile', get_user_profile, name='get_user_profile'),
     path('auth/register', register_user, name='register_user'),
+    path('aicte/summary/<int:student_id>/', aicte_summary, name='aicte-summary'),
+    path('mentor/dashboard/', mentor_dashboard, name='mentor-dashboard'),
+    path('certificates/verify/<str:file_hash>/', certificate_verify, name='certificate-verify'),
 ]

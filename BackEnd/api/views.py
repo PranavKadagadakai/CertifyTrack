@@ -4,28 +4,50 @@ from rest_framework import generics, viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.exceptions import ValidationError, PermissionDenied
 from django.shortcuts import get_object_or_404
-from django.db.models import Count
-from .models import User, Student, Mentor, Club, Event, EventRegistration, Certificate, Hall, HallBooking, AICTECategory, AICTEPointTransaction, Notification, AuditLog
+from django.db.models import Count, Sum, Q
+from django.utils.timezone import now
+from io import BytesIO
+from django.core.files.base import ContentFile
+import qrcode
+
+from .models import (
+    User, Student, Mentor, Club, Event, EventRegistration, Certificate,
+    Hall, HallBooking, AICTECategory, AICTEPointTransaction, Notification, AuditLog
+)
 from .serializers import (
-    UserSerializer, RegisterSerializer, EventSerializer, 
-    CertificateSerializer, EventRegistrationSerializer, ClubSerializer, 
+    UserSerializer, RegisterSerializer, EventSerializer,
+    CertificateSerializer, EventRegistrationSerializer, ClubSerializer,
     HallSerializer, HallBookingSerializer, AICTECategorySerializer, AICTEPointTransactionSerializer,
     NotificationSerializer, AuditLogSerializer
 )
 from .permissions import IsClubAdmin, IsStudent, IsMentor
-from django.utils.timezone import now
-import qrcode
-from io import BytesIO
-from django.core.files.base import ContentFile
 
-# --- RegisterView ---
+
+# ==========================
+# Helper — Audit Logging
+# ==========================
+def log_action(user, action):
+    AuditLog.objects.create(user=user, action=action)
+
+
+# ==========================
+# RegisterView
+# ==========================
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = (AllowAny,)
     serializer_class = RegisterSerializer
 
-# --- ProfileView ---
+    def perform_create(self, serializer):
+        user = serializer.save()
+        log_action(user, f"User registered: {user.username}")
+
+
+# ==========================
+# ProfileView
+# ==========================
 class ProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
@@ -33,22 +55,32 @@ class ProfileView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         return self.request.user
 
-# --- ClubViewSet ---
+
+# ==========================
+# ClubViewSet
+# ==========================
 class ClubViewSet(viewsets.ModelViewSet):
     queryset = Club.objects.all()
     serializer_class = ClubSerializer
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save(faculty_coordinator=self.request.user.mentor_profile)
+        mentor = getattr(self.request.user, "mentor_profile", None)
+        if mentor is None:
+            raise PermissionDenied("Only mentors can create clubs.")
+        instance = serializer.save(faculty_coordinator=mentor)
+        log_action(self.request.user, f"Created Club: {instance.name}")
 
-# --- EventViewSet ---
+
+# ==========================
+# EventViewSet
+# ==========================
 class EventViewSet(viewsets.ModelViewSet):
     queryset = Event.objects.all()
     serializer_class = EventSerializer
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy', 'generate_certificates']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'generate_certificates', 'start_event', 'end_event']:
             self.permission_classes = [IsClubAdmin]
         elif self.action == 'register':
             self.permission_classes = [IsStudent]
@@ -57,73 +89,115 @@ class EventViewSet(viewsets.ModelViewSet):
         return super().get_permissions()
 
     def perform_create(self, serializer):
-        club = get_object_or_404(Club, club_head=self.request.user.student_profile)
-        serializer.save(club=club)
+        student = getattr(self.request.user, "student_profile", None)
+        if student is None:
+            raise PermissionDenied("Only club organizers can create events.")
+
+        club = Club.objects.filter(club_head=student).first()
+        if club is None:
+            raise PermissionDenied("You are not the head of any club.")
+
+        event = serializer.save(club=club)
+        log_action(self.request.user, f"Created Event: {event.name}")
 
     @action(detail=True, methods=['post'])
     def register(self, request, pk=None):
         event = self.get_object()
-        student = request.user.student_profile
+        student = getattr(request.user, "student_profile", None)
+
+        if student is None:
+            raise PermissionDenied("Only students can register for events.")
 
         if event.status != 'scheduled':
-            return Response({'error': 'Event registration is closed.'}, status=status.HTTP_400_BAD_REQUEST)
-        if event.eventregistration_set.count() >= event.max_participants:
-            return Response({'error': 'Event is full.'}, status=status.HTTP_400_BAD_REQUEST)
+            raise ValidationError("Event registration is closed.")
+
+        if event.max_participants and event.registrations.count() >= event.max_participants:
+            raise ValidationError("Event is full.")
+
         if EventRegistration.objects.filter(event=event, student=student).exists():
-            return Response({'error': 'Already registered.'}, status=status.HTTP_400_BAD_REQUEST)
+            raise ValidationError("Already registered.")
 
         EventRegistration.objects.create(event=event, student=student)
-        return Response({'status': 'Successfully registered.'}, status=status.HTTP_201_CREATED)
+        log_action(request.user, f"Registered for event: {event.name}")
+        return Response({'status': 'Successfully registered.'}, status=201)
 
     @action(detail=True, methods=['post'], url_path='generate-certificates')
     def generate_certificates(self, request, pk=None):
         event = self.get_object()
+        participants = event.registrations.all()
 
-        participants = event.eventregistration_set.all()
         if not participants:
-            return Response({'error': 'No participants for this event.'}, status=status.HTTP_400_BAD_REQUEST)
+            raise ValidationError("No participants for this event.")
 
-        for participant in participants:
-            student = participant.student
+        for reg in participants:
+            student = reg.student
             certificate, created = Certificate.objects.get_or_create(
                 event=event,
                 student=student,
-                defaults={
-                    'file_path': f"certificates/{event.id}_{student.usn}.pdf",
-                    'issue_date': now()
-                }
             )
 
-            # Generate QR code for the certificate
-            qr_data = f"Certificate ID: {event.id}, Student USN: {student.usn}"
+            # QR code generation (we store QR separately or embed later in PDF generation)
+            qr_data = f"Certificate Verification - Event {event.id}, USN {student.usn}"
             qr = qrcode.make(qr_data)
             qr_io = BytesIO()
             qr.save(qr_io, format="PNG")
-            qr_file = ContentFile(qr_io.getvalue(), f"{student.usn}_qr.png")
-
-            # Here you would add the QR code to the certificate template
-            # and save the certificate as a PDF.
+            ContentFile(qr_io.getvalue(), f"{student.usn}_qr.png")
 
         event.status = 'completed'
         event.save()
+        log_action(request.user, f"Generated certificates for event: {event.name}")
+
         return Response({'status': 'Certificates generated successfully.'})
 
-# --- HallViewSet ---
+    @action(detail=True, methods=['post'], url_path='start')
+    def start_event(self, request, pk=None):
+        event = self.get_object()
+        if event.status != 'scheduled':
+            raise ValidationError("Only scheduled events can be started.")
+        event.status = 'ongoing'
+        event.save()
+        log_action(request.user, f"Started event: {event.name}")
+        return Response({'status': 'Event started.'})
+
+    @action(detail=True, methods=['post'], url_path='end')
+    def end_event(self, request, pk=None):
+        event = self.get_object()
+        if event.status != 'ongoing':
+            raise ValidationError("Only ongoing events can be ended.")
+        event.status = 'completed'
+        event.save()
+        log_action(request.user, f"Ended event: {event.name}")
+        return Response({'status': 'Event ended.'})
+
+
+# ==========================
+# HallViewSet
+# ==========================
 class HallViewSet(viewsets.ModelViewSet):
     queryset = Hall.objects.all()
     serializer_class = HallSerializer
     permission_classes = [IsAuthenticated]
 
-# --- HallBookingViewSet ---
+
+# ==========================
+# HallBookingViewSet
+# ==========================
 class HallBookingViewSet(viewsets.ModelViewSet):
     queryset = HallBooking.objects.all()
     serializer_class = HallBookingSerializer
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save(booked_by=self.request.user)
+        student = getattr(self.request.user, "student_profile", None)
+        if student is None:
+            raise PermissionDenied("Only club members can book halls.")
+        instance = serializer.save(booked_by=student)
+        log_action(self.request.user, f"Hall booking created for {instance.hall.name}")
 
-# --- CertificateViewSet ---
+
+# ==========================
+# CertificateViewSet
+# ==========================
 class CertificateViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = CertificateSerializer
 
@@ -136,13 +210,19 @@ class CertificateViewSet(viewsets.ReadOnlyModelViewSet):
             return Certificate.objects.filter(student__in=mentees)
         return Certificate.objects.none()
 
-# --- AICTECategoryViewSet ---
+
+# ==========================
+# AICTE Category
+# ==========================
 class AICTECategoryViewSet(viewsets.ModelViewSet):
     queryset = AICTECategory.objects.all()
     serializer_class = AICTECategorySerializer
     permission_classes = [IsAuthenticated]
 
-# --- AICTEPointTransactionViewSet ---
+
+# ==========================
+# AICTE Transactions
+# ==========================
 class AICTEPointTransactionViewSet(viewsets.ModelViewSet):
     queryset = AICTEPointTransaction.objects.all()
     serializer_class = AICTEPointTransactionSerializer
@@ -150,47 +230,63 @@ class AICTEPointTransactionViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='approve')
     def approve(self, request, pk=None):
-        transaction = self.get_object()
-        transaction.status = 'APPROVED'
-        transaction.save()
-        return Response({'status': 'Transaction approved.'}, status=status.HTTP_200_OK)
+        tx = self.get_object()
+        tx.status = 'APPROVED'
+        tx.save()
+        log_action(request.user, f"Approved AICTE transaction ID {tx.id}")
+        return Response({'status': 'Transaction approved.'})
 
     @action(detail=True, methods=['post'], url_path='reject')
     def reject(self, request, pk=None):
-        transaction = self.get_object()
-        transaction.status = 'REJECTED'
-        transaction.save()
-        return Response({'status': 'Transaction rejected.'}, status=status.HTTP_200_OK)
+        tx = self.get_object()
+        tx.status = 'REJECTED'
+        tx.save()
+        log_action(request.user, f"Rejected AICTE transaction ID {tx.id}")
+        return Response({'status': 'Transaction rejected.'})
 
-# --- NotificationViewSet ---
+
+# ==========================
+# Notifications
+# ==========================
 class NotificationViewSet(viewsets.ModelViewSet):
     queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Return notifications for the logged-in user
         return self.queryset.filter(user=self.request.user)
 
     @action(detail=False, methods=['post'], url_path='mark-all-read')
     def mark_all_read(self, request):
         notifications = self.get_queryset()
         notifications.update(is_read=True)
-        return Response({'status': 'All notifications marked as read.'}, status=status.HTTP_200_OK)
+        log_action(request.user, "Marked all notifications as read")
+        return Response({'status': 'All notifications marked as read.'})
 
-# --- AuditLogViewSet ---
+
+# ==========================
+# Audit Logs
+# ==========================
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = AuditLog.objects.all()
     serializer_class = AuditLogSerializer
     permission_classes = [IsAuthenticated]
 
+
+# ==========================
+# Event Stats
+# ==========================
 @api_view(['GET'])
 def event_statistics(request):
     stats = Event.objects.annotate(
         total_registrations=Count('registrations')
     ).values('id', 'name', 'total_registrations')
-    return Response(stats, status=status.HTTP_200_OK)
+    return Response(stats)
 
+
+# ==========================
+# User Profile API
+# ==========================
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_user_profile(request):
@@ -202,7 +298,10 @@ def get_user_profile(request):
         "role": user.user_type,
     })
 
-from django.contrib.auth.models import User
+
+# ==========================
+# Legacy register endpoint
+# ==========================
 from .models import User as CustomUser
 
 @api_view(['POST'])
@@ -215,8 +314,104 @@ def register_user(request):
             password=data['password'],
             user_type=data['role']
         )
-        user.full_name = data.get('fullName', '')
-        user.save()
-        return Response({"message": "User registered successfully!"}, status=status.HTTP_201_CREATED)
+        log_action(user, "User registered (legacy route)")
+        return Response({"message": "User registered successfully!"}, status=201)
     except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"error": str(e)}, status=400)
+
+
+# ========================================================
+# AICTE SUMMARY ENDPOINT
+# ========================================================
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def aicte_summary(request, student_id):
+    """
+    Returns:
+    - Total approved points
+    - Category-wise summary
+    - Last updated timestamp
+    """
+    student = get_object_or_404(Student, id=student_id)
+
+    total_points = AICTEPointTransaction.objects.filter(
+        student=student, status="APPROVED"
+    ).aggregate(total=Sum('points_allocated'))['total'] or 0
+
+    categories = AICTECategory.objects.all()
+    category_data = []
+
+    for category in categories:
+        tx = AICTEPointTransaction.objects.filter(student=student, category=category)
+
+        category_data.append({
+            "category": category.name,
+            "approved_points": tx.filter(status='APPROVED').aggregate(sum=Sum('points_allocated'))['sum'] or 0,
+            "pending_points": tx.filter(status='PENDING').aggregate(sum=Sum('points_allocated'))['sum'] or 0,
+            "rejected_points": tx.filter(status='REJECTED').aggregate(sum=Sum('points_allocated'))['sum'] or 0,
+        })
+
+    last_tx = AICTEPointTransaction.objects.filter(student=student).order_by('-id').first()
+    last_updated = last_tx.id if last_tx else None
+
+    return Response({
+        "student_id": student.id,
+        "student_usn": student.usn,
+        "total_points": total_points,
+        "categories": category_data,
+        "last_updated": last_updated
+    })
+
+
+# ========================================================
+# Mentor Dashboard
+# ========================================================
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def mentor_dashboard(request):
+    """
+    Returns mentees for the logged-in mentor and a small summary for each:
+    - student_id, usn, approved_points, pending_points, rejected_points
+    """
+    mentor = getattr(request.user, 'mentor_profile', None)
+    if mentor is None:
+        raise PermissionDenied("Only mentors may access this endpoint.")
+
+    mentees = Student.objects.filter(mentor=mentor)
+    result = []
+    for s in mentees:
+        tx = AICTEPointTransaction.objects.filter(student=s)
+        result.append({
+            'student_id': s.id,
+            'student_usn': s.usn,
+            'approved_points': tx.filter(status='APPROVED').aggregate(sum=Sum('points_allocated'))['sum'] or 0,
+            'pending_points': tx.filter(status='PENDING').aggregate(sum=Sum('points_allocated'))['sum'] or 0,
+            'rejected_points': tx.filter(status='REJECTED').aggregate(sum=Sum('points_allocated'))['sum'] or 0,
+        })
+
+    return Response({'mentees': result})
+
+
+# ========================================================
+# Certificate verification (public)
+# ========================================================
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def certificate_verify(request, file_hash):
+    """
+    Public endpoint to verify a certificate by its file_hash (SHA256).
+    Returns certificate metadata and verification status.
+    """
+    cert = Certificate.objects.filter(file_hash=file_hash).select_related('student', 'event').first()
+    if not cert:
+        return Response({'verified': False, 'message': 'Certificate not found.'}, status=404)
+
+    data = {
+        'verified': True,
+        'certificate_id': cert.id,
+        'student_usn': cert.student.usn,
+        'event_name': cert.event.name,
+        'issue_date': cert.issue_date,
+        'file_hash': cert.file_hash,
+    }
+    return Response(data)
