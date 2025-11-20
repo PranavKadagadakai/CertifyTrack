@@ -1,19 +1,21 @@
-import React, { useState } from "react";
-import { useAuth } from "../context/AuthContext";
+import React, { useState, useContext } from "react";
+import { AuthContext } from "../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 
-function LoginPage() {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+const LoginPage = () => {
+  const { login } = useContext(AuthContext);
+  const [credentials, setCredentials] = useState({
+    username: "",
+    password: "",
+  });
   const [error, setError] = useState("");
-  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     try {
-      await login(username, password);
+      await login(credentials.username, credentials.password);
       navigate("/");
     } catch (err) {
       setError("Failed to log in. Please check your credentials.");
@@ -33,8 +35,10 @@ function LoginPage() {
             <input
               id="username"
               type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              value={credentials.username}
+              onChange={(e) =>
+                setCredentials({ ...credentials, username: e.target.value })
+              }
               required
               className="w-full px-3 py-2 mt-1 border rounded-md"
             />
@@ -46,8 +50,10 @@ function LoginPage() {
             <input
               id="password"
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              value={credentials.password}
+              onChange={(e) =>
+                setCredentials({ ...credentials, password: e.target.value })
+              }
               required
               className="w-full px-3 py-2 mt-1 border rounded-md"
             />
@@ -68,6 +74,6 @@ function LoginPage() {
       </div>
     </div>
   );
-}
+};
 
 export default LoginPage;

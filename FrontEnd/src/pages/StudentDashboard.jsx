@@ -1,76 +1,44 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import api from "../api";
+import EventCard from "../components/EventCard";
 
-function StudentDashboard() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+const StudentDashboard = () => {
+  const [events, setEvents] = useState([]);
+  const [points, setPoints] = useState(0);
 
   useEffect(() => {
-    api
-      .get("/dashboard/")
-      .then((res) => {
-        setData(res.data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError("Failed to fetch dashboard data.");
-        setLoading(false);
-      });
+    const fetchData = async () => {
+      const eventsResponse = await api.get("/events");
+      const pointsResponse = await api.get("/aicte-points");
+      setEvents(eventsResponse.data);
+      setPoints(pointsResponse.data.total_points);
+    };
+
+    fetchData();
   }, []);
 
   const handleRegister = async (eventId) => {
     try {
-      await api.post(`/events/${eventId}/register/`);
-      // Refetch data to update lists
-      const res = await api.get("/dashboard/");
-      setData(res.data);
-      alert("Successfully registered for the event!");
-    } catch (err) {
-      alert(err.response?.data?.error || "Failed to register for the event.");
+      await api.post(`/events/${eventId}/register`);
+      alert("Registered successfully!");
+    } catch (error) {
+      console.error("Registration failed:", error);
     }
   };
 
-  if (loading) return <p>Loading dashboard...</p>;
-  if (error) return <p className="text-red-500">{error}</p>;
-
   return (
-    <div>
-      <h1 className="text-3xl font-bold mb-4">Student Dashboard</h1>
-      <p>Welcome, {data.profile.profile.full_name}!</p>
-      <p>AICTE Points: {data.profile.profile.aicte_points}</p>
-
-      <div className="mt-8">
-        <h2 className="text-2xl font-semibold mb-4">Available Events</h2>
-        {data.available_events.length > 0 ? (
-          <ul className="space-y-4">
-            {data.available_events.map((event) => (
-              <li key={event.id} className="p-4 bg-white rounded-lg shadow">
-                <h3 className="text-xl font-bold">{event.name}</h3>
-                <p>Date: {event.date}</p>
-                <p>{event.description}</p>
-                <button
-                  onClick={() => handleRegister(event.id)}
-                  className="mt-2 px-4 py-2 text-white bg-blue-600 rounded hover:bg-blue-700"
-                >
-                  Register
-                </button>
-              </li>
-            ))}
-          </ul>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">Welcome to the Student Dashboard</h1>
+      <h2 className="text-xl mb-4">Your AICTE Points: {points}</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {events.length > 0 ? (
+          events.map((event) => <EventCard key={event.id} event={event} onRegister={handleRegister} />)
         ) : (
-          <p>No new events available.</p>
+          <p>No events available at the moment.</p>
         )}
-      </div>
-
-      <div className="mt-8">
-        <h2 className="text-2xl font-semibold mb-4">
-          Your Registered Events & Certificates
-        </h2>
-        {/* Logic to display registered events and certificates */}
       </div>
     </div>
   );
-}
+};
 
 export default StudentDashboard;

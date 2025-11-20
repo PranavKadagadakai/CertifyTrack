@@ -2,7 +2,7 @@
 
 from rest_framework import generics, viewsets, status
 from rest_framework.response import Response
-from rest_framework.decorators import action, api_view
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import get_object_or_404
 from django.db.models import Count
@@ -15,6 +15,9 @@ from .serializers import (
 )
 from .permissions import IsClubAdmin, IsStudent, IsMentor
 from django.utils.timezone import now
+import qrcode
+from io import BytesIO
+from django.core.files.base import ContentFile
 
 # --- RegisterView ---
 class RegisterView(generics.CreateAPIView):
@@ -90,6 +93,16 @@ class EventViewSet(viewsets.ModelViewSet):
                     'issue_date': now()
                 }
             )
+
+            # Generate QR code for the certificate
+            qr_data = f"Certificate ID: {event.id}, Student USN: {student.usn}"
+            qr = qrcode.make(qr_data)
+            qr_io = BytesIO()
+            qr.save(qr_io, format="PNG")
+            qr_file = ContentFile(qr_io.getvalue(), f"{student.usn}_qr.png")
+
+            # Here you would add the QR code to the certificate template
+            # and save the certificate as a PDF.
 
         event.status = 'completed'
         event.save()
@@ -177,3 +190,33 @@ def event_statistics(request):
         total_registrations=Count('registrations')
     ).values('id', 'name', 'total_registrations')
     return Response(stats, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_profile(request):
+    user = request.user
+    return Response({
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "role": user.user_type,
+    })
+
+from django.contrib.auth.models import User
+from .models import User as CustomUser
+
+@api_view(['POST'])
+def register_user(request):
+    data = request.data
+    try:
+        user = CustomUser.objects.create_user(
+            username=data['username'],
+            email=data['email'],
+            password=data['password'],
+            user_type=data['role']
+        )
+        user.full_name = data.get('fullName', '')
+        user.save()
+        return Response({"message": "User registered successfully!"}, status=status.HTTP_201_CREATED)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)

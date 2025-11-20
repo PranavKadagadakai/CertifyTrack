@@ -2,35 +2,36 @@ import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 
-function SignupPage() {
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState("student");
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+const SignupPage = () => {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    username: "",
+    email: "",
+    password: "",
+    fullName: "",
+    role: "student",
+  });
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
+
     try {
-      const userData = { username, email, password, full_name: fullName, role };
-      await register(userData);
-      setSuccess("Registration successful! Please log in.");
+      await register(formData);
+      setSuccess("Registration successful! Redirecting to login...");
       setTimeout(() => navigate("/login"), 2000);
     } catch (err) {
-      console.error(err);
-      const errorData = err.response?.data;
-      if (errorData) {
-        const messages = Object.values(errorData).flat().join(" ");
-        setError(messages || "Failed to sign up.");
-      } else {
-        setError("An unknown error occurred.");
-      }
+      setError(
+        err.response?.data?.error || "Registration failed. Please try again."
+      );
     }
   };
 
@@ -46,8 +47,9 @@ function SignupPage() {
             <label className="block text-sm font-medium">Username</label>
             <input
               type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              name="username"
+              value={formData.username}
+              onChange={handleChange}
               required
               className="w-full px-3 py-2 mt-1 border rounded-md"
             />
@@ -56,8 +58,9 @@ function SignupPage() {
             <label className="block text-sm font-medium">Full Name</label>
             <input
               type="text"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
+              name="fullName"
+              value={formData.fullName}
+              onChange={handleChange}
               required
               className="w-full px-3 py-2 mt-1 border rounded-md"
             />
@@ -66,8 +69,9 @@ function SignupPage() {
             <label className="block text-sm font-medium">Email</label>
             <input
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
               required
               className="w-full px-3 py-2 mt-1 border rounded-md"
             />
@@ -76,8 +80,9 @@ function SignupPage() {
             <label className="block text-sm font-medium">Password</label>
             <input
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
               required
               className="w-full px-3 py-2 mt-1 border rounded-md"
             />
@@ -85,13 +90,14 @@ function SignupPage() {
           <div>
             <label className="block text-sm font-medium">Role</label>
             <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
               className="w-full px-3 py-2 mt-1 border rounded-md"
             >
               <option value="student">Student</option>
-              <option value="club">Club</option>
               <option value="mentor">Mentor</option>
+              <option value="club_organizer">Club Organizer</option>
             </select>
           </div>
           <button
@@ -110,6 +116,6 @@ function SignupPage() {
       </div>
     </div>
   );
-}
+};
 
 export default SignupPage;

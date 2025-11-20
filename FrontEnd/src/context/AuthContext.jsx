@@ -1,46 +1,76 @@
-import React, { createContext, useState, useContext } from "react";
-import api from "../api";
+import React, { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../api";
 
-const AuthContext = createContext();
+export const AuthContext = createContext();
+
 export const useAuth = () => useContext(AuthContext);
 
-export const AuthProvider = ({ children }) => {
+const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const login = async (username, password) => {
+  useEffect(() => {
+    const fetchUser = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await api.get("/auth/profile");
+        setUser(response.data);
+      } catch (error) {
+        if (error.response?.status === 401) {
+          localStorage.removeItem("token");
+          navigate("/login");
+        }
+        console.error("Failed to fetch user:", error);
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUser();
+  }, [navigate]);
+
+  const login = async (credentials) => {
     try {
-      const response = await api.post("login/", { username, password });
-      localStorage.setItem("accessToken", response.data.access);
-      localStorage.setItem("refreshToken", response.data.refresh);
-      setUser(response.data.user); // <-- Set user from response
-      return response.data;
+      const response = await api.post("/auth/login", credentials);
+      localStorage.setItem("token", response.data.token);
+      setUser(response.data.user);
+      navigate("/dashboard");
     } catch (error) {
-      throw error.response?.data || error;
+      console.error("Login failed:", error);
+      throw error;
     }
   };
 
   const register = async (userData) => {
     try {
-      await api.post("register/", userData);
-      // Optionally auto-login after registration
-      await login(userData.username, userData.password);
+      const response = await api.post("/auth/register", userData);
+      return response.data;
     } catch (error) {
-      throw error.response?.data || error;
+      console.error("Registration failed:", error);
+      throw error;
     }
   };
 
   const logout = () => {
+    localStorage.removeItem("token");
     setUser(null);
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
     navigate("/login");
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout }}>
+    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
 };
+
+export default AuthProvider;

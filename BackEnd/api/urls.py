@@ -5,7 +5,8 @@ from .views import (
     RegisterView, ProfileView, EventViewSet, 
     CertificateViewSet, ClubViewSet, HallViewSet, 
     HallBookingViewSet, AICTECategoryViewSet, AICTEPointTransactionViewSet,
-    NotificationViewSet, event_statistics, AuditLogViewSet
+    NotificationViewSet, event_statistics, AuditLogViewSet, get_user_profile,
+    register_user
 )
 
 router = DefaultRouter()
@@ -25,4 +26,6 @@ urlpatterns = [
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('profile/', ProfileView.as_view(), name='profile'),
     path('reports/event-statistics/', event_statistics, name='event-statistics'),
+    path('auth/profile', get_user_profile, name='get_user_profile'),
+    path('auth/register', register_user, name='register_user'),
 ]

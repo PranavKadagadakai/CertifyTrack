@@ -1,78 +1,35 @@
 import React from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
-function Navbar() {
+const Navbar = () => {
   const { user, logout } = useAuth();
 
-  const getDashboardLink = () => {
-    if (!user) return "/";
-    switch (user.profile.role) {
-      case "student":
-        return "/student-dashboard";
-      case "club":
-        return "/club-dashboard";
-      case "mentor":
-        return "/mentor-dashboard";
-      default:
-        return "/";
-    }
-  };
-
   return (
-    <header className="bg-blue-600 text-white shadow-md">
-      <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-        <Link to="/" className="text-xl font-bold">
+    <nav className="bg-gray-800 text-white p-4">
+      <div className="container mx-auto flex justify-between items-center">
+        <Link to="/" className="text-lg font-bold">
           CertifyTrack
         </Link>
-        <nav className="space-x-4 flex items-center">
-          <NavLink
-            to="/"
-            className={({ isActive }) => (isActive ? "font-bold" : "")}
-          >
-            Home
-          </NavLink>
+        <div className="space-x-4">
           {user ? (
             <>
-              <NavLink
-                to={getDashboardLink()}
-                className={({ isActive }) => (isActive ? "font-bold" : "")}
-              >
-                Dashboard
-              </NavLink>
-              <NavLink
-                to="/profile"
-                className={({ isActive }) => (isActive ? "font-bold" : "")}
-              >
-                Profile
-              </NavLink>
-              <button
-                onClick={logout}
-                className="bg-red-500 hover:bg-red-600 px-3 py-1 rounded"
-              >
+              <Link to="/dashboard">Dashboard</Link>
+              <Link to="/profile">Profile</Link>
+              <button onClick={logout} className="bg-red-500 px-4 py-2 rounded">
                 Logout
               </button>
             </>
           ) : (
             <>
-              <NavLink
-                to="/login"
-                className="bg-green-500 hover:bg-green-600 px-3 py-1 rounded"
-              >
-                Login
-              </NavLink>
-              <NavLink
-                to="/signup"
-                className="bg-gray-200 text-blue-600 hover:bg-gray-300 px-3 py-1 rounded"
-              >
-                Sign Up
-              </NavLink>
+              <Link to="/login">Login</Link>
+              <Link to="/signup">Signup</Link>
             </>
           )}
-        </nav>
+        </div>
       </div>
-    </header>
+    </nav>
   );
-}
+};
 
 export default Navbar;
