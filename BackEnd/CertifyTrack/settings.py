@@ -6,22 +6,24 @@ Modified to:
 - Provide MEDIA_URL and MEDIA_ROOT required by urls.py static() helper.
 - Provide optional PostgreSQL configuration (use env vars in production) while keeping sqlite fallback for local dev.
 - Add STATIC_ROOT for collectstatic in deployments.
+- Make REST framework permission defaults developer-friendly (AllowAny) so auth endpoints work out of the box;
+  require views to set permissions explicitly for protected endpoints.
+- Safer parsing for CORS env var.
 """
 
 import os
 from pathlib import Path
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Read environment variables (simple pattern).
-# For production, export these env vars (e.g. via systemd, Docker, CI/CD secrets).
 SECRET_KEY = os.getenv(
     "DJANGO_SECRET_KEY",
     "django-insecure-j-%f((oz!3^^$jtwyor=^t4nkj&ce)v$0j^9554&jl%+p_q*%5"  # local/dev fallback (DO NOT use in production)
 )
 
-# DEBUG should be False in production. Use '1' or 'true' env var to enable locally.
 DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() in ("1", "true", "yes")
 
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
@@ -57,10 +59,11 @@ ROOT_URLCONF = 'CertifyTrack.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],  # add project-level templates if needed
+        'DIRS': [BASE_DIR / "templates"],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
+                'django.template.context_processors.debug',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
@@ -72,9 +75,6 @@ TEMPLATES = [
 WSGI_APPLICATION = 'CertifyTrack.wsgi.application'
 
 # Database
-# SRS prefers PostgreSQL 15+. We support both:
-# - If POSTGRES_DB (and related vars) are provided, use PostgreSQL.
-# - Otherwise fallback to SQLite for local development/testing.
 if os.getenv("POSTGRES_DB"):
     DATABASES = {
         'default': {
@@ -100,7 +100,6 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
     },
     {
-        # SRS: password complexity (min 8 chars etc.) can be enforced client-side + custom validator
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
         'OPTIONS': {'min_length': 8},
     },
@@ -126,36 +125,53 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Auth
 AUTH_USER_MODEL = 'api.User'
 
 # Django REST Framework settings
+# NOTE: We use AllowAny by default to avoid blocking public endpoints (e.g. auth, healthchecks).
+# Views which require authentication should use permission_classes = [IsAuthenticated] explicitly.
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
+        'rest_framework.permissions.AllowAny',
     ],
 }
 
-# CORS settings to allow React frontend to connect
+# Simple JWT sensible defaults (can be overridden via env vars)
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=int(os.getenv("JWT_ACCESS_MINUTES", "60"))),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=int(os.getenv("JWT_REFRESH_DAYS", "7"))),
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
+
+# CORS settings
 CORS_ALLOW_CREDENTIALS = True
 
-# Update the allowed hosts / origins for dev. In production, set these via env vars.
-CORS_ALLOWED_ORIGINS = os.getenv(
+def _parse_csv_env(env_name, default):
+    """
+    Parse an environment variable containing a comma-separated list.
+    Return a list of trimmed, non-empty strings.
+    """
+    raw = os.getenv(env_name)
+    if raw is None:
+        raw = default
+    # split, strip whitespace, filter out empty strings
+    return [s.strip() for s in raw.split(",") if s.strip()]
+
+CORS_ALLOWED_ORIGINS = _parse_csv_env(
     "CORS_ALLOWED_ORIGINS",
     "http://localhost:5173,http://127.0.0.1:5173"
-).split(",")
+)
 
-# CSRF trusted origins (if using CSRF)
-CSRF_TRUSTED_ORIGINS = os.getenv(
+CSRF_TRUSTED_ORIGINS = _parse_csv_env(
     "CSRF_TRUSTED_ORIGINS",
     "http://localhost:5173,http://127.0.0.1:5173"
-).split(",")
+)
 
 # Logging: placeholder structured logging; expand per SRS (ELK, rotation, etc.)
 LOG_LEVEL = os.getenv("DJANGO_LOG_LEVEL", "INFO")

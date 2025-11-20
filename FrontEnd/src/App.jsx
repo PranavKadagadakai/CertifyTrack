@@ -1,7 +1,7 @@
-// App.js
-import React, { useContext } from "react";
+// FrontEnd/src/App.jsx
+import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import { AuthContext } from "./context/AuthContext";
+import { useAuth } from "./context/AuthContext";
 import Navbar from "./components/Navbar";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
@@ -12,13 +12,14 @@ import ClubDashboard from "./pages/ClubDashboard";
 import ProfilePage from "./pages/ProfilePage";
 
 const App = () => {
-  const { user, loading } = useContext(AuthContext);
+  const { user, loading } = useAuth();
 
   if (loading) return <div>Loading...</div>;
 
   const PrivateRoute = ({ children, role }) => {
     if (!user) return <Navigate to="/login" />;
-    if (role && user.role !== role) return <Navigate to="/dashboard" />;
+    // backend uses user.user_type (student, mentor, club_organizer, admin)
+    if (role && user.user_type !== role) return <Navigate to="/dashboard" />;
     return children;
   };
 
@@ -33,9 +34,13 @@ const App = () => {
           path="/dashboard"
           element={
             <PrivateRoute>
-              {user?.role === "student" && <StudentDashboard />}
-              {user?.role === "mentor" && <MentorDashboard />}
-              {user?.role === "club_organizer" && <ClubDashboard />}
+              {user?.user_type === "student" && <StudentDashboard />}
+              {user?.user_type === "mentor" && <MentorDashboard />}
+              {user?.user_type === "club_organizer" && <ClubDashboard />}
+              {/* default fallback: show student dashboard if unknown */}
+              {!["student", "mentor", "club_organizer"].includes(
+                user?.user_type
+              ) && <StudentDashboard />}
             </PrivateRoute>
           }
         />

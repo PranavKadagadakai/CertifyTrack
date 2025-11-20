@@ -1,9 +1,9 @@
+// FrontEnd/src/context/AuthContext.jsx
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 
 export const AuthContext = createContext();
-
 export const useAuth = () => useContext(AuthContext);
 
 const AuthProvider = ({ children }) => {
@@ -11,63 +11,64 @@ const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  // Load user if access token exists
   useEffect(() => {
-    const fetchUser = async () => {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setUser(null);
+    const loadUser = async () => {
+      const access = localStorage.getItem("access");
+      if (!access) {
         setLoading(false);
         return;
       }
 
       try {
-        const response = await api.get("/auth/profile");
+        const response = await api.get("/auth/profile/");
         setUser(response.data);
-      } catch (error) {
-        if (error.response?.status === 401) {
-          localStorage.removeItem("token");
-          navigate("/login");
-        }
-        console.error("Failed to fetch user:", error);
-        setUser(null);
-      } finally {
-        setLoading(false);
+      } catch (err) {
+        console.error("Profile load failed:", err);
+        localStorage.removeItem("access");
+        localStorage.removeItem("refresh");
       }
+      setLoading(false);
     };
 
-    fetchUser();
-  }, [navigate]);
+    loadUser();
+  }, []);
 
-  const login = async (credentials) => {
+  const login = async (username, password) => {
     try {
-      const response = await api.post("/auth/login", credentials);
-      localStorage.setItem("token", response.data.token);
-      setUser(response.data.user);
-      navigate("/dashboard");
-    } catch (error) {
-      console.error("Login failed:", error);
-      throw error;
-    }
-  };
+      const response = await api.post("/auth/login/", { username, password });
 
-  const register = async (userData) => {
-    try {
-      const response = await api.post("/auth/register", userData);
-      return response.data;
-    } catch (error) {
-      console.error("Registration failed:", error);
-      throw error;
+      const { access, refresh } = response.data;
+
+      // Save tokens
+      localStorage.setItem("access", access);
+      localStorage.setItem("refresh", refresh);
+
+      // Fetch user profile
+      const profile = await api.get("/auth/profile/");
+      setUser(profile.data);
+
+      // Redirect based on user_type
+      if (profile.data.user_type === "student") navigate("/dashboard");
+      else if (profile.data.user_type === "mentor") navigate("/dashboard");
+      else if (profile.data.user_type === "club_organizer")
+        navigate("/dashboard");
+      else navigate("/dashboard");
+    } catch (err) {
+      console.error("Login failed:", err);
+      throw err;
     }
   };
 
   const logout = () => {
-    localStorage.removeItem("token");
+    localStorage.removeItem("access");
+    localStorage.removeItem("refresh");
     setUser(null);
     navigate("/login");
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

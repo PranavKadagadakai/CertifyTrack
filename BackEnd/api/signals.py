@@ -1,4 +1,3 @@
-# api/signals.py
 from django.db.models.signals import pre_save, post_save
 from django.dispatch import receiver
 from django.core.exceptions import ValidationError
@@ -55,7 +54,6 @@ def notify_on_transaction_status_change(sender, instance, created, **kwargs):
     When an AICTE transaction is created or updated, notify the student of the status.
     Also create an audit log entry for traceability.
     """
-    # Create a notification with a helpful message
     status = instance.status
     user = instance.student.user
     title = f"AICTE points {status.lower()}"
