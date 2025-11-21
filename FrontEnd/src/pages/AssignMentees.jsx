@@ -6,12 +6,12 @@ export default function AssignMentees() {
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
-    api.get("/students/all/").then((res) => setStudents(res.data));
+    api.get("/students/").then((res) => setStudents(res.data));
   }, []);
 
   const assign = async (studentId) => {
     try {
-      await api.post(`/mentor/assign/${studentId}/`);
+      await api.post(`/students/${studentId}/assign/`);
       setSuccess("Mentee assigned successfully!");
     } catch {
       setSuccess("Failed to assign mentee.");

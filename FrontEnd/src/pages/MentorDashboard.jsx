@@ -9,9 +9,9 @@ const MentorDashboard = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const menteesResponse = await api.get("/students/mentees");
+      const menteesResponse = await api.get("/students/mentees/");
       const transactionsResponse = await api.get(
-        "/aicte-transactions?status=PENDING"
+        "/aicte-transactions/?status=PENDING"
       );
       setMentees(menteesResponse.data);
       setPendingTransactions(transactionsResponse.data);
@@ -20,10 +20,11 @@ const MentorDashboard = () => {
     fetchData();
   }, []);
 
-  const handleApproval = async (transactionId, status) => {
+  const handleApproval = async (transactionId, statusAction) => {
     try {
-      await api.post(`/aicte-transactions/${transactionId}/${status}`);
-      alert(`Transaction ${status.toLowerCase()} successfully!`);
+      // Use the custom actions: approve or reject
+      await api.post(`/aicte-transactions/${transactionId}/${statusAction}/`);
+      alert(`Transaction ${statusAction.toLowerCase()} successfully!`);
       setPendingTransactions((prev) =>
         prev.filter((transaction) => transaction.id !== transactionId)
       );
@@ -61,8 +62,8 @@ const MentorDashboard = () => {
                 className="flex justify-between items-center border-b pb-2"
               >
                 <span>
-                  {transaction.student.name} -{" "}
-                  {transaction.points_allocated} points
+                  {transaction.student.name} - {transaction.points_allocated}{" "}
+                  points
                 </span>
                 <div className="space-x-2">
                   <button

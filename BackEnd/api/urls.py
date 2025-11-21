@@ -2,18 +2,63 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView, TokenObtainPairView
 from .views import (
-    RegisterView, ProfileView, EventViewSet,
-    CertificateViewSet, ClubViewSet, HallViewSet,
-    HallBookingViewSet, AICTECategoryViewSet, AICTEPointTransactionViewSet,
-    NotificationViewSet, event_statistics, AuditLogViewSet, get_user_profile,
-    register_user, aicte_summary, mentor_dashboard, certificate_verify, get_aicte_points,
-    get_mentees, list_all_students, assign_mentee, mentor_stats
+    # Authentication
+    RegisterView, VerifyEmailView, ResendVerificationEmailView, LoginView, RequestPasswordResetView, ResetPasswordView,
+    
+    # Profile Management
+    ProfileView, StudentProfileView, MentorProfileView, ClubOrganizerProfileView,
+    
+    # Student Management
+    StudentViewSet,
+    
+    # User Management
+    AdminUserCreationView, BulkUserCreationView,
+    
+    # Mentor-Mentee
+    MentorMenteeAssignmentView, BulkMenteeAssignmentView,
+    
+    # Admin Management
+    AdminUserListViewSet, AdminClubManagementViewSet, AdminMenteeAssignmentViewSet,
+    AdminAICTEConfigViewSet, AdminReportingViewSet,
+    
+    # Club Management
+    ClubViewSet, ClubMemberViewSet, ClubRoleViewSet,
+    
+    # Event Management
+    EventViewSet, EventAttendanceViewSet,
+    
+    # Hall Booking
+    HallViewSet, HallBookingViewSet,
+    
+    # Certificates
+    CertificateTemplateViewSet, CertificateViewSet,
+    
+    # AICTE
+    AICTECategoryViewSet, AICTEPointTransactionViewSet,
+    
+    # Notifications & Audit
+    NotificationViewSet, AuditLogViewSet,
+    
+    # Reports
+    dashboard_stats
 )
 
 router = DefaultRouter()
+
+# ViewSet registrations
+router.register(r'students', StudentViewSet, basename='student')
+router.register(r'admin/users', AdminUserListViewSet, basename='admin-user-list')
+router.register(r'admin/clubs', AdminClubManagementViewSet, basename='admin-club-management')
+router.register(r'admin/mentees', AdminMenteeAssignmentViewSet, basename='admin-mentee-assignment')
+router.register(r'admin/aicte', AdminAICTEConfigViewSet, basename='admin-aicte-config')
+router.register(r'admin/reports', AdminReportingViewSet, basename='admin-reports')
 router.register(r'events', EventViewSet, basename='event')
+router.register(r'event-attendance', EventAttendanceViewSet, basename='event-attendance')
 router.register(r'certificates', CertificateViewSet, basename='certificate')
+router.register(r'certificate-templates', CertificateTemplateViewSet, basename='certificate-template')
 router.register(r'clubs', ClubViewSet, basename='club')
+router.register(r'club-members', ClubMemberViewSet, basename='club-member')
+router.register(r'club-roles', ClubRoleViewSet, basename='club-role')
 router.register(r'halls', HallViewSet, basename='hall')
 router.register(r'hall-bookings', HallBookingViewSet, basename='hall-booking')
 router.register(r'aicte-categories', AICTECategoryViewSet, basename='aicte-category')
@@ -23,19 +68,31 @@ router.register(r'audit-logs', AuditLogViewSet, basename='audit-log')
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('register/', RegisterView.as_view(), name='register'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    
+    # Authentication endpoints
+    path('auth/register/', RegisterView.as_view(), name='register'),
+    path('auth/verify-email/', VerifyEmailView.as_view(), name='verify-email'),
+    path('auth/resend-verification/', ResendVerificationEmailView.as_view(), name='resend-verification'),
+    path('auth/login/', LoginView.as_view(), name='login'),
+    path('auth/password-reset/request/', RequestPasswordResetView.as_view(), name='request-password-reset'),
+    path('auth/password-reset/confirm/', ResetPasswordView.as_view(), name='reset-password'),
+    path('auth/token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
+    path('auth/token/obtain/', TokenObtainPairView.as_view(), name='token-obtain'),
+    
+    # Profile endpoints
     path('profile/', ProfileView.as_view(), name='profile'),
-    path('reports/event-statistics/', event_statistics, name='event-statistics'),
-    path('auth/profile/', get_user_profile, name='get_user_profile'),
-    path('auth/register/', register_user, name='register_user'),
-    path('aicte/summary/<int:student_id>/', aicte_summary, name='aicte-summary'),
-    path("aicte-points/", get_aicte_points, name="aicte-points"),
-    path('mentor/dashboard/', mentor_dashboard, name='mentor-dashboard'),
-    path("students/mentees/", get_mentees, name="get-mentees"),
-    path("students/all/", list_all_students, name="list-all-students"),
-    path("mentor/assign/<int:student_id>/", assign_mentee, name="assign-mentee"),
-    path("mentor/stats/", mentor_stats, name="mentor-stats"),
-    path('certificates/verify/<str:file_hash>/', certificate_verify, name='certificate-verify'),
+    path('profile/student/', StudentProfileView.as_view(), name='student-profile'),
+    path('profile/mentor/', MentorProfileView.as_view(), name='mentor-profile'),
+    path('profile/club-organizer/', ClubOrganizerProfileView.as_view(), name='club-organizer-profile'),
+    
+    # Admin user management
+    path('admin/users/create/', AdminUserCreationView.as_view(), name='admin-create-user'),
+    path('admin/users/bulk-create/', BulkUserCreationView.as_view(), name='admin-bulk-create-users'),
+    
+    # Mentor-mentee management
+    path('admin/mentees/assign/', MentorMenteeAssignmentView.as_view(), name='admin-assign-mentees'),
+    path('admin/mentees/bulk-assign/', BulkMenteeAssignmentView.as_view(), name='admin-bulk-assign-mentees'),
+    
+    # Reports & Statistics
+    path('dashboard/stats/', dashboard_stats, name='dashboard-stats'),
 ]
