@@ -8,19 +8,36 @@ const SignupPage = () => {
     username: "",
     email: "",
     password: "",
+    password_confirm: "",
     fullName: "",
     role: "student",
     usn: "",
     department: "",
     semester: 1,
+    employee_id: "",
+    designation: "",
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [passwordError, setPasswordError] = useState("");
 
   const departments = ["CSE", "ECE", "ISE", "ME", "EEE", "Civil", "AIML", "DS"];
 
+  const validatePassword = (pwd) => {
+    if (pwd.length < 8) {
+      return "Password must be at least 8 characters long.";
+    }
+    return "";
+  };
+
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+
+    // Validate password on change
+    if (name === "password") {
+      setPasswordError(validatePassword(value));
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -28,25 +45,75 @@ const SignupPage = () => {
     setError("");
     setSuccess("");
 
+    // Validate passwords match
+    if (formData.password !== formData.password_confirm) {
+      return setError("Passwords do not match.");
+    }
+
+    // Validate password strength
+    const pwdError = validatePassword(formData.password);
+    if (pwdError) {
+      return setError(pwdError);
+    }
+
     // Validate student fields
     if (formData.role === "student") {
       if (!formData.usn.trim())
         return setError("USN is required for students.");
-      if (!departments.includes(formData.department))
+      if (!formData.department)
         return setError("Please select a valid department.");
       if (formData.semester < 1 || formData.semester > 8)
         return setError("Semester must be between 1 and 8.");
     }
 
+    // Validate mentor fields
+    if (formData.role === "mentor") {
+      if (!formData.employee_id.trim())
+        return setError("Employee ID is required for mentors.");
+      if (!formData.department)
+        return setError("Please select a valid department.");
+      if (!formData.designation.trim())
+        return setError("Designation is required for mentors.");
+    }
+
     try {
-      await api.post("/auth/register/", formData);
-      setSuccess("Registration successful! Redirecting to login...");
-      setTimeout(() => navigate("/login"), 2000);
+      await api.post("/auth/register/", {
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
+        password_confirm: formData.password_confirm,
+        user_type: formData.role,
+        first_name: formData.fullName,
+        ...(formData.role === "student" && {
+          usn: formData.usn,
+          department: formData.department,
+          semester: parseInt(formData.semester),
+        }),
+        ...(formData.role === "mentor" && {
+          employee_id: formData.employee_id,
+          department: formData.department,
+          designation: formData.designation,
+        }),
+      });
+      setSuccess(
+        "Registration successful! Redirecting to email verification..."
+      );
+      setTimeout(() => navigate("/verify-email"), 1500);
     } catch (err) {
-      if (err.response?.data?.usn) {
+      const errorData = err.response?.data;
+      if (errorData?.usn) {
         setError("USN already exists.");
-      } else if (err.response?.data?.error) {
-        setError(err.response.data.error);
+      } else if (errorData?.email) {
+        setError("Email already registered.");
+      } else if (errorData?.error) {
+        setError(errorData.error);
+      } else if (typeof errorData === "object") {
+        const firstError = Object.values(errorData)[0];
+        setError(
+          Array.isArray(firstError)
+            ? firstError[0]
+            : firstError || "Registration failed."
+        );
       } else {
         setError("Registration failed. Please try again.");
       }
@@ -101,8 +168,33 @@ const SignupPage = () => {
               value={formData.password}
               onChange={handleChange}
               required
+              placeholder="Minimum 8 characters"
               className="w-full px-3 py-2 mt-1 border rounded-md"
             />
+            {passwordError && (
+              <p className="text-red-500 text-sm mt-1">{passwordError}</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium">
+              Confirm Password
+            </label>
+            <input
+              type="password"
+              name="password_confirm"
+              value={formData.password_confirm}
+              onChange={handleChange}
+              required
+              placeholder="Re-enter your password"
+              className="w-full px-3 py-2 mt-1 border rounded-md"
+            />
+            {formData.password &&
+              formData.password_confirm &&
+              formData.password !== formData.password_confirm && (
+                <p className="text-red-500 text-sm mt-1">
+                  Passwords do not match.
+                </p>
+              )}
           </div>
           <div>
             <label className="block text-sm font-medium">Role</label>
@@ -166,23 +258,55 @@ const SignupPage = () => {
           )}
 
           {formData.role === "mentor" && (
-            <div>
-              <label className="block text-sm font-medium">Department</label>
-              <select
-                name="department"
-                value={formData.department}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 mt-1 border rounded-md"
-              >
-                <option value="">Select Department</option>
-                {departments.map((dep) => (
-                  <option key={dep} value={dep}>
-                    {dep}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <>
+              <div>
+                <label className="block text-sm font-medium">Employee ID</label>
+                <input
+                  type="text"
+                  name="employee_id"
+                  value={formData.employee_id}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-3 py-2 mt-1 border rounded-md"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium">Department</label>
+                <select
+                  name="department"
+                  value={formData.department}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-3 py-2 mt-1 border rounded-md"
+                >
+                  <option value="">Select Department</option>
+                  {departments.map((dep) => (
+                    <option key={dep} value={dep}>
+                      {dep}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium">Designation</label>
+                <input
+                  type="text"
+                  name="designation"
+                  value={formData.designation}
+                  onChange={handleChange}
+                  required
+                  placeholder="e.g., Professor, Assistant Professor"
+                  className="w-full px-3 py-2 mt-1 border rounded-md"
+                />
+              </div>
+            </>
+          )}
+
+          {formData.role === "club_organizer" && (
+            <p className="text-sm text-gray-600 bg-blue-50 p-3 rounded">
+              You can complete your club organizer profile after email
+              verification.
+            </p>
           )}
 
           <button

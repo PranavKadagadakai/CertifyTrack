@@ -8,8 +8,17 @@ const StudentDashboard = () => {
 
   useEffect(() => {
     api
-      .get("/aicte-points/")
-      .then((res) => setPoints(res.data.total_points))
+      .get("/aicte-transactions/")
+      .then((res) => {
+        // Calculate total points from transactions
+        const total = res.data.reduce((sum, tx) => {
+          if (tx.status === "APPROVED") {
+            return sum + (tx.points || 0);
+          }
+          return sum;
+        }, 0);
+        setPoints(total);
+      })
       .catch((err) => {
         if (err.response?.status === 404) {
           setPoints(0);

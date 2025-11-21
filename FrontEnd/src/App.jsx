@@ -6,9 +6,12 @@ import Navbar from "./components/Navbar";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
+import EmailVerificationPage from "./pages/EmailVerificationPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import StudentDashboard from "./pages/StudentDashboard";
 import MentorDashboard from "./pages/MentorDashboard";
 import ClubDashboard from "./pages/ClubDashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 import ProfilePage from "./pages/ProfilePage";
 
 const App = () => {
@@ -16,10 +19,11 @@ const App = () => {
 
   if (loading) return <div>Loading...</div>;
 
-  const PrivateRoute = ({ children, role }) => {
+  const PrivateRoute = ({ children, userType }) => {
     if (!user) return <Navigate to="/login" />;
-    // backend uses user.role (student, mentor, club_organizer, admin)
-    if (role && user.role !== role) return <Navigate to="/dashboard" />;
+    // backend uses user.user_type (student, mentor, club_organizer, admin)
+    if (userType && user.user_type !== userType)
+      return <Navigate to="/dashboard" />;
     return children;
   };
 
@@ -30,16 +34,19 @@ const App = () => {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/verify-email" element={<EmailVerificationPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route
           path="/dashboard"
           element={
             <PrivateRoute>
-              {user?.role === "student" && <StudentDashboard />}
-              {user?.role === "mentor" && <MentorDashboard />}
-              {user?.role === "club_organizer" && <ClubDashboard />}
+              {user?.user_type === "student" && <StudentDashboard />}
+              {user?.user?.user_type === "mentor" && <MentorDashboard />}
+              {user?.user?.user_type === "club_organizer" && <ClubDashboard />}
+              {user?.user_type === "admin" && <AdminDashboard />}
               {/* default fallback: show student dashboard if unknown */}
-              {!["student", "mentor", "club_organizer"].includes(
-                user?.role
+              {!["student", "mentor", "club_organizer", "admin"].includes(
+                user?.user_type
               ) && <StudentDashboard />}
             </PrivateRoute>
           }

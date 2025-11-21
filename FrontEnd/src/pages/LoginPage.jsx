@@ -1,76 +1,114 @@
-import React, { useState, useContext } from "react";
-import { AuthContext } from "../context/AuthContext";
+import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import api from "../api";
 
 const LoginPage = () => {
-  const { login } = useContext(AuthContext);
-  const [credentials, setCredentials] = useState({
-    username: "",
-    password: "",
-  });
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
+
     try {
-      await login(credentials.username, credentials.password);
+      const response = await api.post("/auth/login/", {
+        username,
+        password,
+      });
+
+      const { access, refresh, user } = response.data;
+
+      // Save tokens and user info
+      localStorage.setItem("access", access);
+      localStorage.setItem("refresh", refresh);
+      localStorage.setItem("user", JSON.stringify(user));
+
+      // Redirect to dashboard (role-based rendering handled by App.jsx)
       navigate("/dashboard");
     } catch (err) {
-      setError("Failed to log in. Please check your credentials.");
+      setError(err.response?.data?.error || "Login failed. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-[80vh]">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
-        <h2 className="text-2xl font-bold text-center">Login</h2>
-        {error && <p className="text-red-500 text-center">{error}</p>}
-        <form onSubmit={handleSubmit} className="space-y-6">
+    <div className="min-h-screen bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-8">
+        <h1 className="text-3xl font-bold text-center mb-2 text-gray-800">
+          CertifyTrack
+        </h1>
+        <p className="text-center text-gray-600 mb-6">
+          Unified Platform for Events & Certificates
+        </p>
+
+        {error && (
+          <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label htmlFor="username" className="block text-sm font-medium">
-              Username
+            <label className="block text-gray-700 font-semibold mb-2">
+              Username or Email
             </label>
             <input
-              id="username"
               type="text"
-              value={credentials.username}
-              onChange={(e) =>
-                setCredentials({ ...credentials, username: e.target.value })
-              }
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter your username or email"
               required
-              className="w-full px-3 py-2 mt-1 border rounded-md"
             />
           </div>
+
           <div>
-            <label htmlFor="password" className="block text-sm font-medium">
+            <label className="block text-gray-700 font-semibold mb-2">
               Password
             </label>
             <input
-              id="password"
               type="password"
-              value={credentials.password}
-              onChange={(e) =>
-                setCredentials({ ...credentials, password: e.target.value })
-              }
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter your password"
               required
-              className="w-full px-3 py-2 mt-1 border rounded-md"
             />
           </div>
+
           <button
             type="submit"
-            className="w-full px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700"
+            disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition disabled:bg-gray-400"
           >
-            Login
+            {loading ? "Logging in..." : "Login"}
           </button>
         </form>
-        <p className="text-sm text-center">
-          Don't have an account?{" "}
-          <Link to="/signup" className="text-blue-600 hover:underline">
-            Sign up
-          </Link>
-        </p>
+
+        <div className="mt-6 space-y-3 text-sm text-center">
+          <p className="text-gray-600">
+            Don't have an account?{" "}
+            <Link
+              to="/signup"
+              className="text-blue-600 hover:underline font-semibold"
+            >
+              Sign up
+            </Link>
+          </p>
+          <p className="text-gray-600">
+            <Link
+              to="/forgot-password"
+              className="text-blue-600 hover:underline font-semibold"
+            >
+              Forgot password?
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );

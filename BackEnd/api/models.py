@@ -63,6 +63,14 @@ class Student(models.Model):
     usn = models.CharField(max_length=20, unique=True)
     department = models.CharField(max_length=100)
     semester = models.IntegerField()
+    phone_number = models.CharField(max_length=15, blank=True, null=True)
+    date_of_birth = models.DateField(blank=True, null=True)
+    address = models.TextField(blank=True, null=True)
+    profile_photo = models.ImageField(upload_to='profile_photos/students/', blank=True, null=True)
+    emergency_contact_name = models.CharField(max_length=100, blank=True, null=True)
+    emergency_contact_phone = models.CharField(max_length=15, blank=True, null=True)
+    profile_completed = models.BooleanField(default=False)
+    profile_completed_at = models.DateTimeField(blank=True, null=True)
     mentor = models.ForeignKey('Mentor', on_delete=models.SET_NULL, null=True, blank=True, related_name='mentees')
 
     def __str__(self):
@@ -78,9 +86,39 @@ class Mentor(models.Model):
     employee_id = models.CharField(max_length=20, unique=True)
     department = models.CharField(max_length=100)
     designation = models.CharField(max_length=100)
+    phone_number = models.CharField(max_length=15, blank=True, null=True)
+    date_of_birth = models.DateField(blank=True, null=True)
+    address = models.TextField(blank=True, null=True)
+    profile_photo = models.ImageField(upload_to='profile_photos/mentors/', blank=True, null=True)
+    qualifications = models.TextField(blank=True, null=True)
+    bio = models.TextField(blank=True, null=True)
+    profile_completed = models.BooleanField(default=False)
+    profile_completed_at = models.DateTimeField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.user.get_full_name() or self.user.username} ({self.employee_id})"
+
+
+class ClubOrganizer(models.Model):
+    """
+    Profile for club organizers (student club heads or faculty coordinators).
+    Each club organizer belongs to exactly one club.
+    """
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='club_organizer_profile')
+    club = models.ForeignKey('Club', on_delete=models.SET_NULL, null=True, blank=True, related_name='organizers')
+    phone_number = models.CharField(max_length=15, blank=True, null=True)
+    date_of_birth = models.DateField(blank=True, null=True)
+    address = models.TextField(blank=True, null=True)
+    profile_photo = models.ImageField(upload_to='profile_photos/club_organizers/', blank=True, null=True)
+    designation_in_club = models.CharField(max_length=100, blank=True, null=True, help_text="e.g., President, Secretary, Treasurer, Coordinator")
+    bio = models.TextField(blank=True, null=True)
+    profile_completed = models.BooleanField(default=False)
+    profile_completed_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.get_full_name() or self.user.username} (Club Organizer)"
 
 
 # ============================================
@@ -93,13 +131,22 @@ class Club(models.Model):
     club_head = models.ForeignKey(Student, on_delete=models.SET_NULL, null=True, blank=True, related_name='headed_clubs')
     established_date = models.DateField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(default=now)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.name
 
 
 class ClubRole(models.Model):
-    name = models.CharField(max_length=50, unique=True)
+    ROLE_CHOICES = (
+        ('president', 'President'),
+        ('secretary', 'Secretary'),
+        ('treasurer', 'Treasurer'),
+        ('coordinator', 'Coordinator'),
+        ('member', 'Member'),
+    )
+    name = models.CharField(max_length=50, choices=ROLE_CHOICES, unique=True)
     can_create_events = models.BooleanField(default=False)
     can_edit_events = models.BooleanField(default=False)
     can_delete_events = models.BooleanField(default=False)
@@ -110,6 +157,10 @@ class ClubRole(models.Model):
     can_upload_templates = models.BooleanField(default=False)
     can_generate_certificates = models.BooleanField(default=False)
     can_view_reports = models.BooleanField(default=False)
+    can_manage_members = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.name
 
 
 class ClubMember(models.Model):
@@ -118,6 +169,12 @@ class ClubMember(models.Model):
     role = models.ForeignKey(ClubRole, on_delete=models.CASCADE)
     joined_date = models.DateTimeField(default=now)
     is_active = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ('club', 'student')
+
+    def __str__(self):
+        return f"{self.student.user.username} - {self.club.name} ({self.role.name})"
 
 
 # ============================================
@@ -133,13 +190,33 @@ class Hall(models.Model):
 
 
 class HallBooking(models.Model):
+    BOOKING_STATUS_CHOICES = (
+        ('PENDING', 'Pending'),
+        ('APPROVED', 'Approved'),
+        ('REJECTED', 'Rejected'),
+        ('CANCELLED', 'Cancelled'),
+    )
+    
     hall = models.ForeignKey(Hall, on_delete=models.CASCADE, related_name='bookings')
     event = models.ForeignKey('Event', on_delete=models.CASCADE, related_name='hall_bookings', blank=True, null=True)
-    booked_by = models.ForeignKey(ClubMember, on_delete=models.CASCADE, related_name='hall_bookings')
+    booked_by = models.ForeignKey('ClubMember', on_delete=models.CASCADE, related_name='hall_bookings', blank=True, null=True)
     booking_date = models.DateField()
     start_time = models.TimeField()
     end_time = models.TimeField()
-    booking_status = models.CharField(max_length=20, default='PENDING')
+    booking_status = models.CharField(max_length=20, choices=BOOKING_STATUS_CHOICES, default='PENDING')
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_bookings')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    rejection_reason = models.TextField(blank=True, null=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['booking_date', 'hall']),
+            models.Index(fields=['booking_status']),
+        ]
+
+    def __str__(self):
+        return f"Booking {self.id} - {self.hall.name} on {self.booking_date}"
 
 
 # ============================================
@@ -162,16 +239,76 @@ class Event(models.Model):
     end_time = models.TimeField(blank=True, null=True)
     max_participants = models.IntegerField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        ordering = ['-event_date', '-start_time']
+
+    def __str__(self):
+        return f"{self.name} ({self.event_date})"
 
 
-class EventRegistration(models.Model):
-    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='registrations')
-    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='event_registrations')
-    registration_date = models.DateTimeField(default=now)
-    status = models.CharField(max_length=20, default='REGISTERED')
+class EventAttendance(models.Model):
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='attendance_records')
+    student = models.ForeignKey(Student, on_delete=models.CASCADE)
+    marked_at = models.DateTimeField(auto_now_add=True)
+    marked_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    is_present = models.BooleanField(default=True)
 
     class Meta:
         unique_together = ('event', 'student')
+        indexes = [
+            models.Index(fields=['event', 'student']),
+        ]
+
+    def __str__(self):
+        status = "Present" if self.is_present else "Absent"
+        return f"{self.student.usn} - {self.event.name} ({status})"
+
+
+class EventRegistration(models.Model):
+    REGISTRATION_STATUS_CHOICES = (
+        ('REGISTERED', 'Registered'),
+        ('ATTENDED', 'Attended'),
+        ('CANCELLED', 'Cancelled'),
+        ('NO_SHOW', 'No Show'),
+    )
+    
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='registrations')
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='event_registrations')
+    registration_date = models.DateTimeField(default=now)
+    status = models.CharField(max_length=20, choices=REGISTRATION_STATUS_CHOICES, default='REGISTERED')
+
+    class Meta:
+        unique_together = ('event', 'student')
+        indexes = [
+            models.Index(fields=['event', 'status']),
+            models.Index(fields=['student', 'registration_date']),
+        ]
+
+    def __str__(self):
+        return f"{self.student.usn} registered for {self.event.name}"
+
+
+# ============================================
+# CERTIFICATE TEMPLATE MANAGEMENT
+# ============================================
+class CertificateTemplate(models.Model):
+    name = models.CharField(max_length=100, default='Global Certificate Template')
+    template_file = models.FileField(upload_to='certificate_templates/', help_text="Global certificate template (HTML/PDF)")
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+    version = models.IntegerField(default=1)
+    
+    class Meta:
+        verbose_name_plural = "Certificate Templates"
+    
+    def __str__(self):
+        return f"{self.name} (v{self.version})"
 
 
 # ============================================
@@ -204,11 +341,29 @@ class AICTECategory(models.Model):
 
 
 class AICTEPointTransaction(models.Model):
+    TRANSACTION_STATUS_CHOICES = (
+        ('PENDING', 'Pending'),
+        ('APPROVED', 'Approved'),
+        ('REJECTED', 'Rejected'),
+    )
+    
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='aicte_transactions')
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='aicte_transactions')
     category = models.ForeignKey(AICTECategory, on_delete=models.CASCADE, related_name='transactions')
     points_allocated = models.IntegerField()
-    status = models.CharField(max_length=20, default='PENDING')
+    status = models.CharField(max_length=20, choices=TRANSACTION_STATUS_CHOICES, default='PENDING')
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_transactions')
+    approval_date = models.DateTimeField(blank=True, null=True)
+    rejection_reason = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['student', 'status']),
+            models.Index(fields=['event', 'category']),
+        ]
+        ordering = ['-created_at']
 
     def clean(self):
         if self.category:

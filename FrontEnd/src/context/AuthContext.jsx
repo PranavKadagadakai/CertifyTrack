@@ -21,7 +21,7 @@ const AuthProvider = ({ children }) => {
       }
 
       try {
-        const response = await api.get("/auth/profile/");
+        const response = await api.get("/profile/");
         setUser(response.data);
       } catch (err) {
         console.error("Profile load failed:", err);
@@ -45,7 +45,7 @@ const AuthProvider = ({ children }) => {
       localStorage.setItem("refresh", refresh);
 
       // Fetch user profile
-      const profile = await api.get("/auth/profile/");
+      const profile = await api.get("/profile/");
       setUser(profile.data);
 
       navigate("/dashboard");
