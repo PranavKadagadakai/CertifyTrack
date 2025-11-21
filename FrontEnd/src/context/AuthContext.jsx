@@ -48,12 +48,7 @@ const AuthProvider = ({ children }) => {
       const profile = await api.get("/auth/profile/");
       setUser(profile.data);
 
-      // Redirect based on user_type
-      if (profile.data.user_type === "student") navigate("/dashboard");
-      else if (profile.data.user_type === "mentor") navigate("/dashboard");
-      else if (profile.data.user_type === "club_organizer")
-        navigate("/dashboard");
-      else navigate("/dashboard");
+      navigate("/dashboard");
     } catch (err) {
       console.error("Login failed:", err);
       throw err;

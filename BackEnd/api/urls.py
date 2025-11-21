@@ -6,7 +6,8 @@ from .views import (
     CertificateViewSet, ClubViewSet, HallViewSet,
     HallBookingViewSet, AICTECategoryViewSet, AICTEPointTransactionViewSet,
     NotificationViewSet, event_statistics, AuditLogViewSet, get_user_profile,
-    register_user, aicte_summary, mentor_dashboard, certificate_verify, get_aicte_points
+    register_user, aicte_summary, mentor_dashboard, certificate_verify, get_aicte_points,
+    get_mentees, list_all_students, assign_mentee, mentor_stats
 )
 
 router = DefaultRouter()
@@ -32,5 +33,9 @@ urlpatterns = [
     path('aicte/summary/<int:student_id>/', aicte_summary, name='aicte-summary'),
     path("aicte-points/", get_aicte_points, name="aicte-points"),
     path('mentor/dashboard/', mentor_dashboard, name='mentor-dashboard'),
+    path("students/mentees/", get_mentees, name="get-mentees"),
+    path("students/all/", list_all_students, name="list-all-students"),
+    path("mentor/assign/<int:student_id>/", assign_mentee, name="assign-mentee"),
+    path("mentor/stats/", mentor_stats, name="mentor-stats"),
     path('certificates/verify/<str:file_hash>/', certificate_verify, name='certificate-verify'),
 ]

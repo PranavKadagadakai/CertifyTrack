@@ -23,24 +23,60 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class RegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True)
+
     class Meta:
         model = User
         fields = ['username', 'email', 'password', 'user_type']
-        extra_kwargs = {'password': {'write_only': True}, 'user_type': {'required': True}}
+    
+    def validate(self, data):
+        request = self.context["request"]
+
+        if data["user_type"] == "student":
+            usn = request.data.get("usn")
+            dept = request.data.get("department")
+            sem = request.data.get("semester")
+
+            if not usn:
+                raise serializers.ValidationError({"usn": "USN is required."})
+
+            if Student.objects.filter(usn=usn).exists():
+                raise serializers.ValidationError({"usn": "USN already exists."})
+
+            if sem and (int(sem) < 1 or int(sem) > 8):
+                raise serializers.ValidationError({"semester": "Semester must be 1–8."})
+
+        return data
 
     def create(self, validated_data):
-        user = User.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data['email'],
-            password=validated_data['password'],
-            user_type=validated_data['user_type'],
-            is_email_verified=False,
-            email_verification_token=str(uuid.uuid4()),
-        )
-        user.verification_sent_at = now()
-        user.save(update_fields=['verification_sent_at'])
-        send_verification_email(user)
+        password = validated_data.pop('password')
+        user = User.objects.create(**validated_data)
+        user.set_password(password)
+        user.save()
+
+        # Automatically create Student profile if user_type is student
+        if user.user_type == 'student':
+            Student.objects.create(
+                user=user,
+                usn=self.context['request'].data.get('usn'),
+                department=self.context['request'].data.get('department', ''),
+                semester=self.context['request'].data.get('semester', 1)
+            )
+        
+        # Automatically create Mentor profile if user_type is mentor
+        if user.user_type == "mentor":
+            Mentor.objects.create(
+                user=user,
+                department=self.context["request"].data.get("department", "")
+            )
+
+
         return user
+
+class StudentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Student
+        fields = ["id", "usn", "department", "semester", "user"]
 
 
 class ClubSerializer(serializers.ModelSerializer):

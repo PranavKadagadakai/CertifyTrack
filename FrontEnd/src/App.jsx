@@ -18,8 +18,8 @@ const App = () => {
 
   const PrivateRoute = ({ children, role }) => {
     if (!user) return <Navigate to="/login" />;
-    // backend uses user.user_type (student, mentor, club_organizer, admin)
-    if (role && user.user_type !== role) return <Navigate to="/dashboard" />;
+    // backend uses user.role (student, mentor, club_organizer, admin)
+    if (role && user.role !== role) return <Navigate to="/dashboard" />;
     return children;
   };
 
@@ -34,12 +34,12 @@ const App = () => {
           path="/dashboard"
           element={
             <PrivateRoute>
-              {user?.user_type === "student" && <StudentDashboard />}
-              {user?.user_type === "mentor" && <MentorDashboard />}
-              {user?.user_type === "club_organizer" && <ClubDashboard />}
+              {user?.role === "student" && <StudentDashboard />}
+              {user?.role === "mentor" && <MentorDashboard />}
+              {user?.role === "club_organizer" && <ClubDashboard />}
               {/* default fallback: show student dashboard if unknown */}
               {!["student", "mentor", "club_organizer"].includes(
-                user?.user_type
+                user?.role
               ) && <StudentDashboard />}
             </PrivateRoute>
           }

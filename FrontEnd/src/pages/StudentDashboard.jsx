@@ -7,14 +7,17 @@ const StudentDashboard = () => {
   const [points, setPoints] = useState(0);
 
   useEffect(() => {
-    const fetchData = async () => {
-      const eventsResponse = await api.get("/events/");
-      const pointsResponse = await api.get("/aicte-points/");
-      setEvents(eventsResponse.data);
-      setPoints(pointsResponse.data.total_points);
-    };
-
-    fetchData();
+    api
+      .get("/aicte-points/")
+      .then((res) => setPoints(res.data.total_points))
+      .catch((err) => {
+        if (err.response?.status === 404) {
+          setPoints(0);
+          console.warn("Student profile missing — new account?");
+        } else {
+          console.error(err);
+        }
+      });
   }, []);
 
   const handleRegister = async (eventId) => {

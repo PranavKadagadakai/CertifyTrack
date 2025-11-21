@@ -18,7 +18,7 @@ from .serializers import (
     UserSerializer, RegisterSerializer, EventSerializer,
     CertificateSerializer, EventRegistrationSerializer, ClubSerializer,
     HallSerializer, HallBookingSerializer, AICTECategorySerializer, AICTEPointTransactionSerializer,
-    NotificationSerializer, AuditLogSerializer
+    NotificationSerializer, AuditLogSerializer, StudentSerializer
 )
 from .permissions import IsClubAdmin, IsStudent, IsMentor
 
@@ -206,7 +206,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return self.queryset.filter(user=self.request.user)
 
-    @action(detail=False, methods=['post'], url_path='mark-all-read')
+    @action(detail=False, methods=['post'], url_path='mark-all-read/')
     def mark_all_read(self, request):
         notifications = self.get_queryset()
         notifications.update(is_read=True)
@@ -318,7 +318,10 @@ def get_aicte_points(request):
     if user.user_type != "student":
         return Response({"error": "Only students can access AICTE points"}, status=403)
 
-    student = user.student_profile
+    try:
+        student = user.student_profile
+    except Student.DoesNotExist:
+        return Response({"error": "Student profile missing for this user"}, status=404)
 
     transactions = student.aicte_transactions.select_related("category").all()
 
@@ -354,4 +357,72 @@ def get_aicte_points(request):
             for tx in pending
         ],
         "category_summary": category_summary,
+    })
+    
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_mentees(request):
+    user = request.user
+
+    # Only mentors can access this
+    if user.user_type != "mentor":
+        return Response({"error": "Only mentors can access mentees"}, status=403)
+
+    try:
+        mentor = Mentor.objects.get(user=user)
+    except Mentor.DoesNotExist:
+        return Response({"error": "Mentor profile missing"}, status=404)
+
+    # Now filter correctly
+    mentees = Student.objects.filter(mentor=mentor)
+    serializer = StudentSerializer(mentees, many=True)
+
+    return Response(serializer.data, status=200)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def list_all_students(request):
+    students = Student.objects.all()
+    ser = StudentSerializer(students, many=True)
+    return Response(ser.data)
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def assign_mentee(request, student_id):
+    user = request.user
+
+    if user.user_type != "mentor":
+        return Response({"error": "Only mentors can assign mentees"}, status=403)
+
+    try:
+        mentor = user.mentor_profile
+    except Mentor.DoesNotExist:
+        return Response({"error": "Mentor profile missing"}, status=404)
+
+    try:
+        student = Student.objects.get(id=student_id)
+    except Student.DoesNotExist:
+        return Response({"error": "Student not found"}, status=404)
+
+    student.mentor = mentor
+    student.save()
+
+    return Response({"success": "Mentee assigned successfully!"})
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def mentor_stats(request):
+    user = request.user
+
+    if user.user_type != "mentor":
+        return Response({"error": "Only mentors can access stats"}, status=403)
+
+    mentor = user.mentor_profile
+    mentees_count = mentor.mentees.count()
+
+    events = mentor.mentees.values("event__name").count() if hasattr(mentor, "event") else 0
+
+    return Response({
+        "total_mentees": mentees_count,
+        "associated_events": events,
     })
