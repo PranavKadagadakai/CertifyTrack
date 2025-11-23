@@ -17,13 +17,18 @@ from .email_utils import send_verification_email, send_password_reset_email
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'user_type', 'is_email_verified', 'date_joined']
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name', 
+            'user_type', 'is_email_verified', 'date_joined'
+        ]
+        read_only_fields = ['email', 'user_type', 'date_joined']
 
 
 class StudentProfileSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
-    mentor_name = serializers.SerializerMethodField()
-    
+    user = UserSerializer()
+    mentor_name = serializers.SerializerMethodField(read_only=True)
+    profile_photo = serializers.ImageField(required=False, allow_null=True, allow_empty_file=True)
+
     class Meta:
         model = Student
         fields = [
@@ -32,17 +37,42 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             'emergency_contact_name', 'emergency_contact_phone',
             'profile_completed', 'profile_completed_at', 'mentor_name'
         ]
-        read_only_fields = ['user', 'profile_completed_at']
-    
+        read_only_fields = ['profile_completed_at']
+
     def get_mentor_name(self, obj):
-        if obj.mentor:
-            return obj.mentor.user.get_full_name() or obj.mentor.user.username
-        return None
+        return obj.mentor.user.get_full_name() if obj.mentor else None
+
+    def update(self, instance, validated_data):
+        # Nested user update (partial)
+        user_data = validated_data.pop('user', {})
+        user = instance.user
+        for attr in ['username', 'first_name', 'last_name']:
+            if attr in user_data:
+                setattr(user, attr, user_data[attr])
+        user.save()
+
+        # Profile fields update (partial-friendly)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Check profile completion
+        required_fields = [
+            'phone_number', 'date_of_birth', 'address',
+            'emergency_contact_name', 'emergency_contact_phone'
+        ]
+        if all(getattr(instance, field, None) for field in required_fields) and not instance.profile_completed:
+            instance.profile_completed = True
+            instance.profile_completed_at = now()
+            instance.save()
+
+        return instance
 
 
 class MentorProfileSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
-    
+    user = UserSerializer()
+    profile_photo = serializers.ImageField(required=False, allow_null=True, allow_empty_file=True)
+
     class Meta:
         model = Mentor
         fields = [
@@ -50,15 +80,38 @@ class MentorProfileSerializer(serializers.ModelSerializer):
             'phone_number', 'date_of_birth', 'address', 'profile_photo',
             'qualifications', 'bio', 'profile_completed', 'profile_completed_at'
         ]
-        read_only_fields = ['user', 'profile_completed_at']
+        read_only_fields = ['profile_completed_at']
+
+    def update(self, instance, validated_data):
+        # Nested user update (partial)
+        user_data = validated_data.pop('user', {})
+        user = instance.user
+        for attr in ['username', 'first_name', 'last_name']:
+            if attr in user_data:
+                setattr(user, attr, user_data[attr])
+        user.save()
+
+        # Profile update (partial-friendly)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Check profile completion
+        required_fields = [
+            'phone_number', 'date_of_birth', 'address', 'qualifications'
+        ]
+        if all(getattr(instance, field, None) for field in required_fields) and not instance.profile_completed:
+            instance.profile_completed = True
+            instance.profile_completed_at = now()
+            instance.save()
+
+        return instance
 
 
 class ClubOrganizerProfileSerializer(serializers.ModelSerializer):
-    """
-    Serializer for club organizer (student club head or coordinator) profiles.
-    """
-    user = UserSerializer(read_only=True)
-    
+    user = UserSerializer()
+    profile_photo = serializers.ImageField(required=False, allow_null=True, allow_empty_file=True)
+
     class Meta:
         model = ClubOrganizer
         fields = [
@@ -66,7 +119,32 @@ class ClubOrganizerProfileSerializer(serializers.ModelSerializer):
             'profile_photo', 'designation_in_club', 'bio', 
             'profile_completed', 'profile_completed_at', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['user', 'profile_completed_at', 'created_at', 'updated_at']
+        read_only_fields = ['profile_completed_at', 'created_at', 'updated_at']
+
+    def update(self, instance, validated_data):
+        # Nested user update (partial)
+        user_data = validated_data.pop('user', {})
+        user = instance.user
+        for attr in ['username', 'first_name', 'last_name']:
+            if attr in user_data:
+                setattr(user, attr, user_data[attr])
+        user.save()
+
+        # Profile update (partial-friendly)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Check profile completion
+        required_fields = [
+            'phone_number', 'date_of_birth', 'address', 'designation_in_club'
+        ]
+        if all(getattr(instance, field, None) for field in required_fields) and not instance.profile_completed:
+            instance.profile_completed = True
+            instance.profile_completed_at = now()
+            instance.save()
+
+        return instance
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -188,6 +266,28 @@ class StudentSerializer(serializers.ModelSerializer):
             "phone_number", "date_of_birth", "address", "profile_photo",
             "emergency_contact_name", "emergency_contact_phone"
         ]
+        
+        
+class MentorSerializer(serializers.ModelSerializer):
+    user_details = UserSerializer(source='user', read_only=True)
+    
+    class Meta:
+        model = Mentor
+        fields = [
+            "id", "user_details", "employee_id", "department", "phone_number", 
+            "profile_photo"
+        ]
+
+
+class ClubOrganizerSerializer(serializers.ModelSerializer):
+    user_details = UserSerializer(source='user', read_only=True)
+    club_name = serializers.CharField(source='club.name', read_only=True)
+
+    class Meta:
+        model = ClubOrganizer
+        fields = [
+            "id", "user_details", "club_name", "phone_number", "profile_photo"
+        ]
 
 
 class ClubRoleSerializer(serializers.ModelSerializer):
@@ -239,14 +339,25 @@ class EventRegistrationSerializer(serializers.ModelSerializer):
 class EventSerializer(serializers.ModelSerializer):
     registrations = EventRegistrationSerializer(many=True, read_only=True)
     created_by_username = serializers.CharField(source='created_by.username', read_only=True)
+    aicte_category_name = serializers.CharField(source='aicte_category.name', read_only=True, allow_null=True)
+    club = serializers.PrimaryKeyRelatedField(read_only=True)
     
     class Meta:
         model = Event
         fields = [
-            'id', 'club', 'name', 'description', 'event_date', 'start_time', 'end_time',
-            'max_participants', 'status', 'created_at', 'updated_at', 'created_by', 'created_by_username',
+            'id', 'club', 'name', 'description', 'event_date', 'end_date', 
+            'start_time', 'end_time', 'max_participants', 'status', 
+            'aicte_category', 'aicte_category_name', 'points_awarded',
+            'created_at', 'updated_at', 'created_by', 'created_by_username',
             'registrations'
         ]
+    
+    def validate(self, data):
+        if data.get('end_date') and data.get('end_date') < data.get('event_date'):
+            raise serializers.ValidationError("End date must be after or equal to start date")
+        if data.get('aicte_category') and not data.get('points_awarded'):
+            raise serializers.ValidationError("Points awarded must be specified when AICTE category is selected")
+        return data
 
 
 class CertificateTemplateSerializer(serializers.ModelSerializer):
@@ -279,17 +390,28 @@ class HallSerializer(serializers.ModelSerializer):
 
 class HallBookingSerializer(serializers.ModelSerializer):
     hall_name = serializers.CharField(source='hall.name', read_only=True)
-    booked_by_username = serializers.CharField(source='booked_by.student.user.username', read_only=True, allow_null=True)
+    booked_by_username = serializers.CharField(source='booked_by.username', read_only=True)
     approved_by_username = serializers.CharField(source='approved_by.username', read_only=True, allow_null=True)
+    event_name = serializers.CharField(source='event.name', read_only=True)
+    event_club = serializers.CharField(source='event.club.name', read_only=True)
+    booked_by = serializers.PrimaryKeyRelatedField(read_only=True)
     
     class Meta:
         model = HallBooking
         fields = [
-            'id', 'hall', 'hall_name', 'event', 'booked_by', 'booked_by_username',
-            'booking_date', 'start_time', 'end_time', 'booking_status',
-            'approved_by', 'approved_by_username', 'created_at', 'updated_at', 'rejection_reason'
+            'id', 'hall', 'hall_name', 'event', 'event_name', 'event_club',
+            'booked_by', 'booked_by_username', 'booking_date', 'start_time', 'end_time',
+            'booking_status', 'approved_by', 'approved_by_username', 'created_at',
+            'updated_at', 'rejection_reason'
         ]
         read_only_fields = ['approved_by', 'created_at', 'updated_at']
+    
+    def validate(self, data):
+        if not data.get('event'):
+            raise serializers.ValidationError("Event is required for hall booking")
+        if not data.get('hall'):
+            raise serializers.ValidationError("Hall is required for booking")
+        return data
 
 
 class AICTECategorySerializer(serializers.ModelSerializer):

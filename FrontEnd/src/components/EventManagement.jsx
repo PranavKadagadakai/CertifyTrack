@@ -3,36 +3,51 @@ import api from "../api";
 
 const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
   const [events, setEvents] = useState([]);
+  const [categories, setCategories] = useState([]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
   const [showForm, setShowForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
+
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     event_date: "",
+    end_date: "",
     start_time: "",
     end_time: "",
     max_participants: "",
-    status: "draft",
+    aicte_category: "",
+    points_awarded: 0,
   });
 
   useEffect(() => {
     fetchEvents();
+    fetchCategories();
   }, []);
 
   const fetchEvents = async () => {
     try {
       setLoading(true);
       const response = await api.get("/events/?club=true");
-      setEvents(response.data);
+      setEvents(Array.isArray(response.data) ? response.data : []);
       setError("");
     } catch (err) {
-      console.error("Failed to fetch events:", err);
       setError("Failed to load events");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await api.get("/aicte-categories/");
+      setCategories(Array.isArray(response.data) ? response.data : []);
+    } catch (err) {
+      console.error("Failed to fetch AICTE categories");
     }
   };
 
@@ -41,35 +56,50 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
       name: "",
       description: "",
       event_date: "",
+      end_date: "",
       start_time: "",
       end_time: "",
       max_participants: "",
-      status: "draft",
+      aicte_category: "",
+      points_awarded: 0,
     });
     setEditingEvent(null);
     setShowForm(false);
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
-    setLoading(true);
 
-    if (!formData.name || !formData.event_date || !formData.start_time) {
-      setError("Please fill in all required fields");
-      setLoading(false);
+    if (
+      formData.end_date &&
+      new Date(formData.end_date) < new Date(formData.event_date)
+    ) {
+      setError("End date must be after start date");
       return;
     }
 
+    if (formData.aicte_category && !formData.points_awarded) {
+      setError("Points awarded must be specified for AICTE events");
+      return;
+    }
+
+    setLoading(true);
+
     try {
       if (editingEvent) {
-        // Update event
+        // Update
         await api.patch(`/events/${editingEvent.id}/`, formData);
         setSuccess("Event updated successfully!");
         onEventUpdated?.(formData);
       } else {
-        // Create new event
+        // Create
         const response = await api.post("/events/", formData);
         setSuccess("Event created successfully!");
         onEventCreated?.(response.data);
@@ -82,15 +112,9 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
           err.response?.data?.error ||
           "Failed to save event"
       );
-      console.error(err);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
   };
 
   const handleEdit = (event) => {
@@ -98,25 +122,26 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
       name: event.name,
       description: event.description || "",
       event_date: event.event_date,
+      end_date: event.end_date || "",
       start_time: event.start_time,
       end_time: event.end_time || "",
       max_participants: event.max_participants || "",
-      status: event.status,
+      aicte_category: event.aicte_category || "",
+      points_awarded: event.points_awarded || 0,
     });
     setEditingEvent(event);
     setShowForm(true);
   };
 
   const handleDelete = async (eventId) => {
-    if (window.confirm("Are you sure you want to delete this event?")) {
-      try {
-        await api.delete(`/events/${eventId}/`);
-        setSuccess("Event deleted successfully!");
-        fetchEvents();
-      } catch (err) {
-        setError("Failed to delete event");
-        console.error(err);
-      }
+    if (!window.confirm("Are you sure you want to delete this event?")) return;
+
+    try {
+      await api.delete(`/events/${eventId}/`);
+      setSuccess("Event deleted successfully!");
+      fetchEvents();
+    } catch (err) {
+      setError("Failed to delete event");
     }
   };
 
@@ -127,136 +152,182 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
       fetchEvents();
     } catch (err) {
       setError("Failed to update event status");
-      console.error(err);
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Messages */}
       {error && (
-        <div className="p-4 bg-red-100 text-red-700 rounded-lg border border-red-300">
-          {error}
-        </div>
+        <div className="p-4 bg-red-100 text-red-700 rounded">{error}</div>
       )}
       {success && (
-        <div className="p-4 bg-green-100 text-green-700 rounded-lg border border-green-300">
-          {success}
-        </div>
+        <div className="p-4 bg-green-100 text-green-700 rounded">{success}</div>
       )}
 
-      {/* Actions */}
       <div className="flex gap-4">
         <button
           onClick={() => {
             resetForm();
             setShowForm(!showForm);
           }}
-          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
         >
           {showForm ? "Cancel" : "+ Create Event"}
         </button>
+
         <button
           onClick={fetchEvents}
-          className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition"
+          className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded"
         >
           Refresh
         </button>
       </div>
 
-      {/* Event Form */}
+      {/* EVENT FORM */}
       {showForm && (
         <form
           onSubmit={handleSubmit}
-          className="bg-white p-6 rounded-lg shadow-md space-y-4 border-l-4 border-blue-500"
+          className="bg-white p-6 rounded-lg shadow space-y-4 border-l-4 border-blue-600"
         >
-          <h3 className="text-lg font-semibold text-gray-800">
+          <h3 className="text-lg font-semibold">
             {editingEvent ? "Edit Event" : "Create New Event"}
           </h3>
 
+          {/* Event Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Event Name <span className="text-red-500">*</span>
+            <label className="block text-sm mb-1 font-medium">
+              Event Name *
             </label>
             <input
               type="text"
               name="name"
+              required
               value={formData.name}
               onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="e.g., Tech Conference 2025"
+              className="w-full p-2 border rounded"
+              placeholder="Enter event name"
             />
           </div>
 
+          {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm mb-1 font-medium">
               Description
             </label>
             <textarea
               name="description"
+              rows="3"
               value={formData.description}
               onChange={handleChange}
-              rows="3"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Event description..."
+              className="w-full p-2 border rounded"
+              placeholder="Event description"
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Dates */}
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Event Date <span className="text-red-500">*</span>
+              <label className="block text-sm mb-1 font-medium">
+                Event Date *
               </label>
               <input
                 type="date"
                 name="event_date"
+                required
                 value={formData.event_date}
                 onChange={handleChange}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full p-2 border rounded"
               />
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Max Participants
-              </label>
+              <label className="block text-sm mb-1 font-medium">End Date</label>
               <input
-                type="number"
-                name="max_participants"
-                value={formData.max_participants}
+                type="date"
+                name="end_date"
+                value={formData.end_date}
                 onChange={handleChange}
-                min="1"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="e.g., 100"
+                className="w-full p-2 border rounded"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Times */}
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Start Time <span className="text-red-500">*</span>
+              <label className="block text-sm mb-1 font-medium">
+                Start Time *
               </label>
               <input
                 type="time"
                 name="start_time"
+                required
                 value={formData.start_time}
                 onChange={handleChange}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full p-2 border rounded"
               />
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                End Time
-              </label>
+              <label className="block text-sm mb-1 font-medium">End Time</label>
               <input
                 type="time"
                 name="end_time"
                 value={formData.end_time}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full p-2 border rounded"
+              />
+            </div>
+          </div>
+
+          {/* Participants */}
+          <div>
+            <label className="block text-sm mb-1 font-medium">
+              Max Participants
+            </label>
+            <input
+              type="number"
+              min="1"
+              name="max_participants"
+              value={formData.max_participants}
+              onChange={handleChange}
+              className="w-full p-2 border rounded"
+              placeholder="Optional"
+            />
+          </div>
+
+          {/* AICTE Category */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm mb-1 font-medium">
+                AICTE Category
+              </label>
+              <select
+                name="aicte_category"
+                value={formData.aicte_category}
+                onChange={handleChange}
+                className="w-full p-2 border rounded"
+              >
+                <option value="">None</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm mb-1 font-medium">
+                Points Awarded
+              </label>
+              <input
+                type="number"
+                name="points_awarded"
+                value={formData.points_awarded}
+                onChange={handleChange}
+                className="w-full p-2 border rounded"
+                placeholder="0"
               />
             </div>
           </div>
@@ -264,7 +335,7 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-medium transition"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded"
           >
             {loading
               ? "Saving..."
@@ -275,87 +346,55 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
         </form>
       )}
 
-      {/* Events List */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-800">Your Events</h3>
+      {/* EVENTS LIST */}
+      <div className="bg-white rounded-lg shadow">
+        <div className="px-6 py-4 bg-gray-50 border-b">
+          <h3 className="text-lg font-semibold">Your Events</h3>
         </div>
 
-        {loading && events.length === 0 ? (
-          <div className="px-6 py-8 text-center text-gray-500">
-            Loading events...
-          </div>
-        ) : events.length === 0 ? (
-          <div className="px-6 py-8 text-center text-gray-500">
-            No events yet. Create your first event!
+        {events.length === 0 ? (
+          <div className="p-6 text-center text-gray-500">
+            No events created yet.
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="bg-gray-100 border-b">
                 <tr>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                    Event Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                    Time
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                    Participants
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                    Actions
-                  </th>
+                  <th className="px-6 py-3 text-left">Name</th>
+                  <th className="px-6 py-3 text-left">Date</th>
+                  <th className="px-6 py-3 text-left">Time</th>
+                  <th className="px-6 py-3 text-left">Status</th>
+                  <th className="px-6 py-3 text-left">Participants</th>
+                  <th className="px-6 py-3 text-left">Actions</th>
                 </tr>
               </thead>
+
               <tbody>
                 {events.map((event) => (
-                  <tr
-                    key={event.id}
-                    className="border-b border-gray-200 hover:bg-gray-50 transition"
-                  >
-                    <td className="px-6 py-4 text-sm text-gray-900 font-medium">
-                      {event.name}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
+                  <tr key={event.id} className="border-b">
+                    <td className="px-6 py-3">{event.name}</td>
+                    <td className="px-6 py-3">
                       {new Date(event.event_date).toLocaleDateString()}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
+                    <td className="px-6 py-3">
                       {event.start_time} - {event.end_time || ""}
                     </td>
-                    <td className="px-6 py-4 text-sm">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          event.status === "draft"
-                            ? "bg-gray-100 text-gray-800"
-                            : event.status === "scheduled"
-                            ? "bg-blue-100 text-blue-800"
-                            : event.status === "ongoing"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : event.status === "completed"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
-                      >
+                    <td className="px-6 py-3">
+                      <span className="px-3 py-1 text-xs rounded bg-blue-100 text-blue-800">
                         {event.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
+                    <td className="px-6 py-3">
                       {event.registrations?.length || 0} /{" "}
                       {event.max_participants || "∞"}
                     </td>
-                    <td className="px-6 py-4 text-sm space-x-2">
+                    <td className="px-6 py-3 space-x-2">
                       {event.status === "draft" && (
                         <>
                           <button
                             onClick={() => handleEdit(event)}
-                            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-medium transition"
+                            className="px-3 py-1 bg-blue-600 text-white rounded text-xs"
                           >
                             Edit
                           </button>
@@ -363,38 +402,38 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
                             onClick={() =>
                               handleStatusChange(event.id, "scheduled")
                             }
-                            className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs font-medium transition"
+                            className="px-3 py-1 bg-green-600 text-white rounded text-xs"
                           >
                             Schedule
                           </button>
+                          <button
+                            onClick={() => handleDelete(event.id)}
+                            className="px-3 py-1 bg-red-600 text-white rounded text-xs"
+                          >
+                            Delete
+                          </button>
                         </>
                       )}
+
                       {event.status === "scheduled" && (
                         <button
                           onClick={() =>
                             handleStatusChange(event.id, "ongoing")
                           }
-                          className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-xs font-medium transition"
+                          className="px-3 py-1 bg-yellow-500 text-white rounded text-xs"
                         >
                           Start
                         </button>
                       )}
+
                       {event.status === "ongoing" && (
                         <button
                           onClick={() =>
                             handleStatusChange(event.id, "completed")
                           }
-                          className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs font-medium transition"
+                          className="px-3 py-1 bg-green-600 text-white rounded text-xs"
                         >
                           Complete
-                        </button>
-                      )}
-                      {event.status === "draft" && (
-                        <button
-                          onClick={() => handleDelete(event.id)}
-                          className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs font-medium transition"
-                        >
-                          Delete
                         </button>
                       )}
                     </td>

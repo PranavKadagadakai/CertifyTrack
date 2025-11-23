@@ -13,7 +13,7 @@ import qrcode
 import csv
 import secrets
 import string
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 
 from .models import (
     User, Student, Mentor, ClubOrganizer, Club, Event, EventRegistration, Certificate,
@@ -25,8 +25,8 @@ from .serializers import (
     CertificateSerializer, EventRegistrationSerializer, ClubSerializer,
     HallSerializer, HallBookingSerializer, AICTECategorySerializer, AICTEPointTransactionSerializer,
     NotificationSerializer, AuditLogSerializer, StudentSerializer, StudentProfileSerializer,
-    MentorProfileSerializer, ClubOrganizerProfileSerializer, ClubMemberSerializer, ClubRoleSerializer,
-    EventAttendanceSerializer, CertificateTemplateSerializer
+    MentorSerializer, MentorProfileSerializer, ClubOrganizerSerializer, ClubOrganizerProfileSerializer,
+    ClubMemberSerializer, ClubRoleSerializer, EventAttendanceSerializer, CertificateTemplateSerializer
 )
 from .permissions import IsClubAdmin, IsStudent, IsMentor, IsAdmin
 from .email_utils import send_verification_email, send_password_reset_email, send_account_locked_email
@@ -306,25 +306,20 @@ class LoginView(generics.GenericAPIView):
 
 class ProfileView(generics.RetrieveUpdateAPIView):
     """
-    User profile view. Returns role-specific profile information.
-    Supports students, mentors, and club organizers.
+    Returns role-specific profile. Updates only username, first_name, last_name.
     """
-    serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
 
-    def get_object(self):
-        return self.request.user
-    
     def get_serializer_class(self):
         user = self.request.user
-        if user.user_type == 'student':
-            return StudentProfileSerializer if hasattr(user, 'student_profile') else UserSerializer
-        elif user.user_type == 'mentor':
-            return MentorProfileSerializer if hasattr(user, 'mentor_profile') else UserSerializer
-        elif user.user_type == 'club_organizer':
-            return ClubOrganizerProfileSerializer if hasattr(user, 'club_organizer_profile') else UserSerializer
-        return UserSerializer
-    
+        if user.user_type == 'student' and hasattr(user, 'student_profile'):
+            return StudentProfileSerializer
+        elif user.user_type == 'mentor' and hasattr(user, 'mentor_profile'):
+            return MentorProfileSerializer
+        elif user.user_type == 'club_organizer' and hasattr(user, 'club_organizer_profile'):
+            return ClubOrganizerProfileSerializer
+        return None  # fallback, unlikely
+
     def get_object(self):
         user = self.request.user
         if user.user_type == 'student' and hasattr(user, 'student_profile'):
@@ -335,90 +330,139 @@ class ProfileView(generics.RetrieveUpdateAPIView):
             return user.club_organizer_profile
         return user
 
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        user_data = self.request.data.get('user', {})
+        user = self.request.user
+        for attr in ['username', 'first_name', 'last_name']:
+            if attr in user_data:
+                setattr(user, attr, user_data[attr])
+        user.save()
+        log_action(user, f"Updated profile ({user.user_type})")
+
 
 class StudentProfileView(generics.RetrieveUpdateAPIView):
-    """
-    Student profile view with comprehensive profile fields.
-    Handles profile completion tracking.
-    """
     serializer_class = StudentProfileSerializer
     permission_classes = [IsAuthenticated]
-    
+
     def get_object(self):
         return get_object_or_404(Student, user=self.request.user)
-    
+
     def perform_update(self, serializer):
         student = serializer.save()
-        
-        # Check if profile is complete
+        user_data = self.request.data.get('user', {})
+        user = self.request.user
+        for attr in ['username', 'first_name', 'last_name']:
+            if attr in user_data:
+                setattr(user, attr, user_data[attr])
+        user.save()
+
         required_fields = [
             'phone_number', 'date_of_birth', 'address',
             'emergency_contact_name', 'emergency_contact_phone'
         ]
-        
-        is_complete = all(getattr(student, field, None) for field in required_fields)
-        if is_complete and not student.profile_completed:
+        if all(getattr(student, field, None) for field in required_fields) and not student.profile_completed:
             student.profile_completed = True
             student.profile_completed_at = now()
             student.save()
-        
-        log_action(self.request.user, "Updated student profile")
+
+        log_action(user, "Updated student profile")
+    
+    def update(self, instance, validated_data):
+        # Update nested user fields if present in top-level validated_data
+        user = instance.user
+        for attr in ['username', 'first_name', 'last_name']:
+            if attr in validated_data:
+                setattr(user, attr, validated_data.pop(attr))
+        user.save()
+
+        # Update profile fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        return instance
 
 
 class MentorProfileView(generics.RetrieveUpdateAPIView):
-    """
-    Mentor profile view with comprehensive profile fields.
-    Handles profile completion tracking.
-    """
     serializer_class = MentorProfileSerializer
     permission_classes = [IsAuthenticated]
-    
+
     def get_object(self):
         return get_object_or_404(Mentor, user=self.request.user)
-    
+
     def perform_update(self, serializer):
         mentor = serializer.save()
-        
-        # Check if profile is complete
+        user_data = self.request.data.get('user', {})
+        user = self.request.user
+        for attr in ['username', 'first_name', 'last_name']:
+            if attr in user_data:
+                setattr(user, attr, user_data[attr])
+        user.save()
+
         required_fields = [
             'phone_number', 'date_of_birth', 'address', 'qualifications'
         ]
-        
-        is_complete = all(getattr(mentor, field, None) for field in required_fields)
-        if is_complete and not mentor.profile_completed:
+        if all(getattr(mentor, field, None) for field in required_fields) and not mentor.profile_completed:
             mentor.profile_completed = True
             mentor.profile_completed_at = now()
             mentor.save()
+
+        log_action(user, "Updated mentor profile")
         
-        log_action(self.request.user, "Updated mentor profile")
+    def update(self, instance, validated_data):
+        user = instance.user
+        for attr in ['username', 'first_name', 'last_name']:
+            if attr in validated_data:
+                setattr(user, attr, validated_data.pop(attr))
+        user.save()
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        return instance
+
 
 
 class ClubOrganizerProfileView(generics.RetrieveUpdateAPIView):
-    """
-    Club organizer profile view with comprehensive profile fields.
-    Handles profile completion tracking for club heads/coordinators.
-    """
     serializer_class = ClubOrganizerProfileSerializer
     permission_classes = [IsAuthenticated]
-    
+
     def get_object(self):
         return get_object_or_404(ClubOrganizer, user=self.request.user)
-    
+
     def perform_update(self, serializer):
         organizer = serializer.save()
-        
-        # Check if profile is complete
+        user_data = self.request.data.get('user', {})
+        user = self.request.user
+        for attr in ['username', 'first_name', 'last_name']:
+            if attr in user_data:
+                setattr(user, attr, user_data[attr])
+        user.save()
+
         required_fields = [
             'phone_number', 'date_of_birth', 'address', 'designation_in_club'
         ]
-        
-        is_complete = all(getattr(organizer, field, None) for field in required_fields)
-        if is_complete and not organizer.profile_completed:
+        if all(getattr(organizer, field, None) for field in required_fields) and not organizer.profile_completed:
             organizer.profile_completed = True
             organizer.profile_completed_at = now()
             organizer.save()
+
+        log_action(user, "Updated club organizer profile")
         
-        log_action(self.request.user, "Updated club organizer profile")
+    def update(self, instance, validated_data):
+        user = instance.user
+        for attr in ['username', 'first_name', 'last_name']:
+            if attr in validated_data:
+                setattr(user, attr, validated_data.pop(attr))
+        user.save()
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        return instance
 
 
 # ============================================================================
@@ -502,6 +546,68 @@ class StudentViewSet(viewsets.ReadOnlyModelViewSet):
             {'message': f'Student {student.user.username} assigned successfully.'},
             status=status.HTTP_200_OK
         )
+        
+# -----------------------
+# Mentor Endpoints
+# -----------------------
+class MentorViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Mentor list and detail endpoints.
+    - GET /api/mentors/ -> list all mentors (admin only)
+    - GET /api/mentors/{id}/mentees/ -> list mentees of a mentor
+    """
+    queryset = Mentor.objects.all()
+    serializer_class = MentorSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.user_type == 'admin':
+            return Mentor.objects.all()
+        return Mentor.objects.none()
+
+    @action(detail=True, methods=['get'])
+    def mentees(self, request, pk=None):
+        """List students assigned to this mentor"""
+        mentor = self.get_object()
+        mentees = Student.objects.filter(mentor=mentor)
+        from .serializers import StudentSerializer
+        serializer = StudentSerializer(mentees, many=True)
+        return Response(serializer.data)
+
+# -----------------------
+# Club Organizer Endpoints
+# -----------------------
+class ClubOrganizerViewSet(viewsets.ModelViewSet):
+    """
+    Club organizer endpoints.
+    - GET /api/club-organizers/ -> list all organizers (admin only)
+    - POST /api/club-organizers/{id}/assign-club/ -> assign organizer to a club
+    """
+    queryset = ClubOrganizer.objects.all()
+    serializer_class = ClubOrganizerSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.user_type == 'admin':
+            return ClubOrganizer.objects.all()
+        return ClubOrganizer.objects.none()
+
+    @action(detail=True, methods=['post'])
+    def assign_club(self, request, pk=None):
+        """Assign this organizer to a club"""
+        club_id = request.data.get('club_id')
+        if not club_id:
+            return Response({'error': 'club_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        organizer = self.get_object()
+        club = get_object_or_404(Club, id=club_id)
+
+        organizer.club = club
+        organizer.save()
+        log_action(request.user, f"Assigned {organizer.user.username} to club {club.name}")
+        return Response({'message': f'{organizer.user.get_full_name()} assigned to {club.name}'}, status=status.HTTP_200_OK)
 
 
 # ============================================================================
@@ -825,21 +931,32 @@ class AdminUserListViewSet(viewsets.ReadOnlyModelViewSet):
 
 class AdminClubManagementViewSet(viewsets.ModelViewSet):
     """
-    Admin club management with full CRUD operations and member assignment.
+    Admin club management - ONLY admins can create clubs and assign organizers.
     """
-    permission_classes = [IsAdmin]
+    queryset = Club.objects.all()
     serializer_class = ClubSerializer
+    permission_classes = [IsAdmin]
     
     def get_queryset(self):
         search = self.request.query_params.get('search')
-        queryset = Club.objects.all()
+        queryset = Club.objects.prefetch_related('faculty_coordinator', 'club_head', 'members')
         if search:
             queryset = queryset.filter(Q(name__icontains=search) | Q(description__icontains=search))
         return queryset
     
     def perform_create(self, serializer):
-        club = serializer.save()
-        log_action(self.request.user, f"Created club: {club.name}")
+        """Create club with faculty coordinator."""
+        coordinator_id = self.request.data.get('faculty_coordinator')
+        if not coordinator_id:
+            raise ValidationError("Faculty coordinator (mentor) is required")
+        
+        try:
+            mentor = Mentor.objects.get(id=coordinator_id)
+        except Mentor.DoesNotExist:
+            raise ValidationError("Mentor not found")
+        
+        club = serializer.save(faculty_coordinator=mentor)
+        log_action(self.request.user, f"Created club: {club.name} with coordinator: {mentor.user.get_full_name()}")
     
     def perform_update(self, serializer):
         club = serializer.save()
@@ -851,22 +968,46 @@ class AdminClubManagementViewSet(viewsets.ModelViewSet):
         log_action(self.request.user, f"Deleted club: {club_name}")
     
     @action(detail=True, methods=['post'])
-    def assign_faculty_coordinator(self, request, pk=None):
-        """Assign faculty coordinator (mentor) to club"""
+    def assign_organizer(self, request, pk=None):
+        """Assign a club organizer to this club."""
+        club = self.get_object()
+        organizer_id = request.data.get('organizer_id')
+        
+        if not organizer_id:
+            return Response({'error': 'organizer_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            organizer_profile = ClubOrganizer.objects.get(id=organizer_id)
+            organizer_profile.club = club
+            organizer_profile.save()
+            log_action(request.user, f"Assigned {organizer_profile.user.username} to club {club.name}")
+            return Response(
+                {'message': f'{organizer_profile.user.get_full_name()} assigned to club {club.name}'},
+                status=status.HTTP_200_OK
+            )
+        except ClubOrganizer.DoesNotExist:
+            return Response({'error': 'Club organizer not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    @action(detail=True, methods=['post'])
+    def assign_coordinator(self, request, pk=None):
+        """Change club faculty coordinator."""
         club = self.get_object()
         mentor_id = request.data.get('mentor_id')
         
         if not mentor_id:
-            return Response({'error': 'mentor_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'mentor_id is required'}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            mentor = Mentor.objects.get(employee_id=mentor_id)
+            mentor = Mentor.objects.get(id=mentor_id)
             club.faculty_coordinator = mentor
             club.save()
-            log_action(request.user, f"Assigned {mentor.user.username} as coordinator to club {club.name}")
-            return Response({'message': f'{mentor.user.get_full_name()} assigned as faculty coordinator.'}, status=status.HTTP_200_OK)
+            log_action(request.user, f"Changed coordinator of {club.name} to {mentor.user.get_full_name()}")
+            return Response(
+                {'message': f'{mentor.user.get_full_name()} is now coordinator of {club.name}'},
+                status=status.HTTP_200_OK
+            )
         except Mentor.DoesNotExist:
-            return Response({'error': 'Mentor not found.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': 'Mentor not found'}, status=status.HTTP_404_NOT_FOUND)
     
     @action(detail=True, methods=['post'])
     def assign_club_head(self, request, pk=None):
@@ -1114,14 +1255,16 @@ class ClubRoleViewSet(viewsets.ReadOnlyModelViewSet):
 class EventViewSet(viewsets.ModelViewSet):
     """
     Event management with full lifecycle support.
-    Supports event creation, registration, attendance marking, and certificate generation.
+    Club organizers can create events for their assigned club.
+    Supports multi-day events and AICTE point allocation.
     """
     queryset = Event.objects.all()
     serializer_class = EventSerializer
     permission_classes = [IsAuthenticated]
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy', 'generate_certificates', 'start_event', 'end_event', 'mark_attendance']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 
+                          'generate_certificates', 'start', 'end', 'mark_attendance']:
             self.permission_classes = [IsClubAdmin]
         elif self.action == 'register':
             self.permission_classes = [IsStudent]
@@ -1130,41 +1273,14 @@ class EventViewSet(viewsets.ModelViewSet):
         return super().get_permissions()
 
     def get_queryset(self):
-        """
-        Filter events based on user type and query parameters.
-        - club_organizers see their club's events
-        - students see all events they can register for
-        - admins see all events
-        """
         user = self.request.user
-        queryset = Event.objects.all()
+        queryset = Event.objects.prefetch_related('aicte_category')
         
-        # If club=true param is passed, filter to current user's club
         if self.request.query_params.get('club') == 'true':
             if user.user_type == 'club_organizer':
-                club = None
-                
-                # Path 1: Get club from ClubOrganizer profile
                 club_organizer_profile = getattr(user, "club_organizer_profile", None)
                 if club_organizer_profile and club_organizer_profile.club:
-                    club = club_organizer_profile.club
-                
-                # Path 2: Check if this user is a Student who is a club head
-                if not club:
-                    student_profile = getattr(user, "student_profile", None)
-                    if student_profile:
-                        club = Club.objects.filter(club_head=student_profile).first()
-                
-                # Path 3: Check if this user is a Student who is a club member
-                if not club:
-                    student_profile = getattr(user, "student_profile", None)
-                    if student_profile:
-                        club_member = ClubMember.objects.filter(student=student_profile, is_active=True).first()
-                        if club_member:
-                            club = club_member.club
-                
-                if club:
-                    queryset = queryset.filter(club=club)
+                    queryset = queryset.filter(club=club_organizer_profile.club)
                 else:
                     queryset = queryset.none()
             else:
@@ -1174,99 +1290,30 @@ class EventViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         user = self.request.user
-        club = None
         
-        if user.user_type == 'club_organizer':
-            # Path 1: Get club from ClubOrganizer profile
-            club_organizer_profile = getattr(user, "club_organizer_profile", None)
-            if club_organizer_profile and club_organizer_profile.club:
-                club = club_organizer_profile.club
-            
-            # Path 2: Check if this user is a Student who is a club head
-            if not club:
-                student_profile = getattr(user, "student_profile", None)
-                if student_profile:
-                    club = Club.objects.filter(club_head=student_profile).first()
-            
-            # Path 3: Check if this user is a Student who is a club member
-            if not club:
-                student_profile = getattr(user, "student_profile", None)
-                if student_profile:
-                    club_member = ClubMember.objects.filter(student=student_profile, is_active=True).first()
-                    if club_member:
-                        club = club_member.club
-            
-            if club:
-                event = serializer.save(club=club, created_by=user)
-                log_action(user, f"Created Event: {event.name}")
-                return
+        if user.user_type != 'club_organizer':
+            raise PermissionDenied("Only club organizers can create events.")
         
-        raise PermissionDenied("Only club members can create events.")
-
-    @action(detail=True, methods=['post'])
-    def register(self, request, pk=None):
-        """Student event registration"""
-        event = self.get_object()
-        student = getattr(request.user, "student_profile", None)
+        club_organizer_profile = getattr(user, "club_organizer_profile", None)
+        if not club_organizer_profile or not club_organizer_profile.club:
+            raise PermissionDenied("You must be assigned to a club to create events.")
         
-        if not student:
-            raise PermissionDenied("Only students can register for events.")
-        
-        if event.status != 'scheduled':
-            raise ValidationError("Event registration is currently closed.")
-        
-        if event.max_participants and event.registrations.count() >= event.max_participants:
-            raise ValidationError("Event has reached maximum capacity.")
-        
-        if EventRegistration.objects.filter(event=event, student=student).exists():
-            raise ValidationError("You are already registered for this event.")
-        
-        EventRegistration.objects.create(event=event, student=student)
-        log_action(request.user, f"Registered for event: {event.name}")
-        
-        return Response(
-            {'message': 'Successfully registered for event.'},
-            status=status.HTTP_201_CREATED
-        )
-
-    @action(detail=True, methods=['post'])
-    def start(self, request, pk=None):
-        """Start an event"""
-        event = self.get_object()
-        
-        if event.status != 'scheduled':
-            raise ValidationError("Only scheduled events can be started.")
-        
-        event.status = 'ongoing'
-        event.save()
-        log_action(request.user, f"Started event: {event.name}")
-        
-        return Response({'message': 'Event started successfully.'})
-
-    @action(detail=True, methods=['post'])
-    def end(self, request, pk=None):
-        """End an event"""
-        event = self.get_object()
-        
-        if event.status != 'ongoing':
-            raise ValidationError("Only ongoing events can be ended.")
-        
-        event.status = 'completed'
-        event.save()
-        log_action(request.user, f"Ended event: {event.name}")
-        
-        return Response({'message': 'Event ended successfully.'})
+        event = serializer.save(club=club_organizer_profile.club, created_by=user)
+        category_name = event.aicte_category.name if event.aicte_category else "None"
+        log_action(user, f"Created Event: {event.name} (AICTE: {category_name}, Points: {event.points_awarded})")
 
     @action(detail=True, methods=['post'])
     def mark_attendance(self, request, pk=None):
-        """Mark attendance for event participants"""
+        """Mark attendance and auto-allocate AICTE points if configured."""
         event = self.get_object()
         attendance_data = request.data.get('attendance', [])
         
         if not isinstance(attendance_data, list):
-            raise ValidationError("Attendance data must be a list.")
+            raise ValidationError("Attendance data must be a list")
         
         created_count = 0
+        points_allocated_count = 0
+        
         for item in attendance_data:
             student_id = item.get('student_id')
             is_present = item.get('is_present', True)
@@ -1276,22 +1323,87 @@ class EventViewSet(viewsets.ModelViewSet):
                 attendance, created = EventAttendance.objects.update_or_create(
                     event=event,
                     student=student,
-                    defaults={
-                        'is_present': is_present,
-                        'marked_by': request.user
-                    }
+                    defaults={'is_present': is_present, 'marked_by': request.user}
                 )
                 if created:
                     created_count += 1
+                    
+                    # Auto-allocate AICTE points for present students
+                    if is_present and event.aicte_category and event.points_awarded > 0:
+                        AICTEPointTransaction.objects.create(
+                            student=student,
+                            event=event,
+                            category=event.aicte_category,
+                            points_allocated=event.points_awarded,
+                            status='PENDING'
+                        )
+                        points_allocated_count += 1
             except Student.DoesNotExist:
                 pass
         
-        log_action(request.user, f"Marked attendance for {len(attendance_data)} participants")
+        log_action(request.user, f"Marked attendance: {created_count} records, allocated {points_allocated_count} AICTE transactions")
         
         return Response({
-            'message': f'Attendance marked for {len(attendance_data)} participants.',
-            'created_count': created_count
+            'message': f'Attendance marked for {len(attendance_data)} participants',
+            'created_count': created_count,
+            'aicte_transactions_created': points_allocated_count,
+            'points_per_student': event.points_awarded if event.aicte_category else 0
         })
+
+    @action(detail=True, methods=['post'])
+    def start(self, request, pk=None):
+        """Start an event (transition from scheduled to ongoing)."""
+        event = self.get_object()
+        
+        if event.status != 'scheduled':
+            raise ValidationError("Only scheduled events can be started")
+        
+        event.status = 'ongoing'
+        event.save()
+        log_action(request.user, f"Started event: {event.name}")
+        
+        return Response({'message': 'Event started successfully', 'status': event.status})
+
+    @action(detail=True, methods=['post'])
+    def end(self, request, pk=None):
+        """End an event (transition from ongoing to completed)."""
+        event = self.get_object()
+        
+        if event.status != 'ongoing':
+            raise ValidationError("Only ongoing events can be ended")
+        
+        event.status = 'completed'
+        event.save()
+        log_action(request.user, f"Ended event: {event.name}")
+        
+        return Response({'message': 'Event ended successfully', 'status': event.status})
+
+    @action(detail=True, methods=['post'], permission_classes=[IsStudent])
+    def register(self, request, pk=None):
+        """Student event registration."""
+        event = self.get_object()
+        
+        try:
+            student = request.user.student_profile
+        except:
+            raise PermissionDenied("Only students can register for events")
+        
+        if event.status != 'scheduled':
+            raise ValidationError("Event registration is currently closed")
+        
+        if event.max_participants and event.registrations.filter(status='REGISTERED').count() >= event.max_participants:
+            raise ValidationError("Event has reached maximum capacity")
+        
+        if EventRegistration.objects.filter(event=event, student=student).exists():
+            raise ValidationError("You are already registered for this event")
+        
+        EventRegistration.objects.create(event=event, student=student)
+        log_action(request.user, f"Registered for event: {event.name}")
+        
+        return Response(
+            {'message': 'Successfully registered for event', 'event': event.name},
+            status=status.HTTP_201_CREATED
+        )
 
     @action(detail=True, methods=['post'], url_path='generate-certificates')
     def generate_certificates(self, request, pk=None):
@@ -1405,48 +1517,26 @@ class HallViewSet(viewsets.ModelViewSet):
 
 class HallBookingViewSet(viewsets.ModelViewSet):
     """
-    Hall booking with conflict detection and approval workflow.
+    Hall booking with mandatory event association and approval workflow.
+    Implements 30-minute setup and 15-minute cleanup buffers.
     """
     queryset = HallBooking.objects.all()
     serializer_class = HallBookingSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        queryset = HallBooking.objects.all()
+        queryset = HallBooking.objects.select_related('event', 'hall', 'booked_by')
         
-        # Filter by booking status if provided
         booking_status = self.request.query_params.get('status')
         if booking_status:
             queryset = queryset.filter(booking_status=booking_status)
         
-        # Filter by current club if club=true param is passed
         if self.request.query_params.get('club') == 'true':
             user = self.request.user
             if user.user_type == 'club_organizer':
-                club = None
-                
-                # Path 1: Get club from ClubOrganizer profile
                 club_organizer_profile = getattr(user, "club_organizer_profile", None)
                 if club_organizer_profile and club_organizer_profile.club:
-                    club = club_organizer_profile.club
-                
-                # Path 2: Check if this user is a Student who is a club head
-                if not club:
-                    student_profile = getattr(user, 'student_profile', None)
-                    if student_profile:
-                        club = Club.objects.filter(club_head=student_profile).first()
-                
-                # Path 3: Check if this user is a Student who is a club member
-                if not club:
-                    student_profile = getattr(user, 'student_profile', None)
-                    if student_profile:
-                        club_member = ClubMember.objects.filter(student=student_profile, is_active=True).first()
-                        if club_member:
-                            club = club_member.club
-                
-                if club:
-                    # Get bookings where the club_id matches the event's club
-                    queryset = queryset.filter(event__club=club)
+                    queryset = queryset.filter(event__club=club_organizer_profile.club)
                 else:
                     queryset = queryset.none()
             else:
@@ -1455,25 +1545,47 @@ class HallBookingViewSet(viewsets.ModelViewSet):
         return queryset
 
     def create(self, request, *args, **kwargs):
-        """Create hall booking with conflict detection"""
+        """Create hall booking with conflict detection including setup/cleanup buffers."""
         hall_id = request.data.get('hall')
+        event_id = request.data.get('event')
         booking_date = request.data.get('booking_date')
         start_time = request.data.get('start_time')
         end_time = request.data.get('end_time')
         
-        # Check for conflicts
+        if not all([hall_id, event_id, booking_date, start_time, end_time]):
+            return Response(
+                {'error': 'hall, event, booking_date, start_time, and end_time are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            from datetime import datetime, time
+            booking_date = datetime.strptime(booking_date, '%Y-%m-%d').date()
+            start_time_obj = datetime.strptime(start_time, '%H:%M').time()
+            end_time_obj = datetime.strptime(end_time, '%H:%M').time()
+        except ValueError:
+            return Response(
+                {'error': 'Invalid date or time format. Use YYYY-MM-DD and HH:MM'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check for conflicts with buffers (30 min setup before, 15 min cleanup after)
+        from datetime import datetime as dt, time as time_type
+        setup_buffer_start = (dt.combine(booking_date, start_time_obj) - timedelta(minutes=30)).time()
+        cleanup_buffer_end = (dt.combine(booking_date, end_time_obj) + timedelta(minutes=15)).time()
+        
         conflicting_bookings = HallBooking.objects.filter(
             hall_id=hall_id,
             booking_date=booking_date,
             booking_status__in=['APPROVED', 'PENDING'],
-            start_time__lt=end_time,
-            end_time__gt=start_time
+            start_time__lt=cleanup_buffer_end,
+            end_time__gt=setup_buffer_start
         )
         
         if conflicting_bookings.exists():
             return Response(
                 {
-                    'error': 'Hall is not available for the selected time slot.',
+                    'error': 'Hall is not available for the selected time slot (including setup/cleanup buffers)',
                     'conflicts': HallBookingSerializer(conflicting_bookings, many=True).data
                 },
                 status=status.HTTP_409_CONFLICT
@@ -1482,39 +1594,48 @@ class HallBookingViewSet(viewsets.ModelViewSet):
         return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
-        user = self.request.user
-        club_member = ClubMember.objects.filter(student__user=user).first() if user.user_type == 'club_organizer' else None
-        
-        instance = serializer.save(booked_by=club_member)
-        log_action(user, f"Requested hall booking for {instance.hall.name}")
+        booking = serializer.save(booked_by=self.request.user)
+        log_action(self.request.user, f"Requested hall booking: {booking.hall.name} for event {booking.event.name}")
 
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
-        """Admin approval of hall booking"""
+        """Admin approval of hall booking."""
         if request.user.user_type != 'admin':
-            raise PermissionDenied("Only administrators can approve bookings.")
+            raise PermissionDenied("Only administrators can approve bookings")
         
         booking = self.get_object()
+        if booking.booking_status == 'APPROVED':
+            return Response({'detail': 'Booking already approved'}, status=status.HTTP_400_BAD_REQUEST)
+        
         booking.booking_status = 'APPROVED'
         booking.approved_by = request.user
         booking.save()
-        log_action(request.user, f"Approved hall booking: {booking.hall.name}")
+        log_action(request.user, f"Approved hall booking: {booking.hall.name} for {booking.event.name}")
         
-        return Response({'message': 'Hall booking approved.'})
+        return Response({'message': 'Hall booking approved', 'status': booking.booking_status})
 
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
-        """Admin rejection of hall booking"""
+        """Admin rejection of hall booking."""
         if request.user.user_type != 'admin':
-            raise PermissionDenied("Only administrators can reject bookings.")
+            raise PermissionDenied("Only administrators can reject bookings")
         
         booking = self.get_object()
-        booking.booking_status = 'REJECTED'
-        booking.rejection_reason = request.data.get('reason', '')
-        booking.save()
-        log_action(request.user, f"Rejected hall booking: {booking.hall.name}")
+        reason = request.data.get('reason', 'No reason provided')
         
-        return Response({'message': 'Hall booking rejected.'})
+        if not reason or len(reason) < 5:
+            return Response(
+                {'error': 'Rejection reason must be at least 5 characters'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        booking.booking_status = 'REJECTED'
+        booking.rejection_reason = reason
+        booking.approved_by = request.user
+        booking.save()
+        log_action(request.user, f"Rejected hall booking: {booking.hall.name} - Reason: {reason}")
+        
+        return Response({'message': 'Hall booking rejected', 'reason': reason})
 
 
 # ============================================================================

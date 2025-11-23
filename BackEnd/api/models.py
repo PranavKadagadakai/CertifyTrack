@@ -6,30 +6,20 @@ from django.utils.timezone import now
 from django.core.exceptions import ValidationError
 
 
-# ============================================
-# Helper – Certificate File Path
-# ============================================
 def certificate_file_path(instance, filename):
-    """
-    Build a deterministic, unique path for certificates under MEDIA_ROOT.
-    Returns a path relative to MEDIA_ROOT.
-    """
+    """Build a deterministic, unique path for certificates."""
     ext = os.path.splitext(filename)[1] or '.pdf'
     ext = ext if ext.lower() == '.pdf' else '.pdf'
-
     event_id = getattr(getattr(instance, 'event', None), 'id', None)
     student_usn = getattr(getattr(instance, 'student', None), 'usn', None)
-
     if event_id is None:
         event_part = "event_tmp"
     else:
         event_part = f"event_{event_id}"
-
     if student_usn is None:
         student_part = f"student_{uuid.uuid4().hex[:8]}"
     else:
         student_part = f"usn_{str(student_usn).replace(' ', '_')}"
-
     filename_safe = f"{event_part}_{student_part}_{uuid.uuid4().hex[:8]}.pdf"
     return os.path.join('certificates', filename_safe)
 
@@ -44,7 +34,6 @@ class User(AbstractUser):
         ('club_organizer', 'Club Organizer'),
         ('admin', 'Admin'),
     )
-
     user_type = models.CharField(max_length=20, choices=USER_TYPE_CHOICES, default='student')
     is_email_verified = models.BooleanField(default=False)
     email_verification_token = models.CharField(max_length=255, blank=True, null=True)
@@ -100,17 +89,14 @@ class Mentor(models.Model):
 
 
 class ClubOrganizer(models.Model):
-    """
-    Profile for club organizers (student club heads or faculty coordinators).
-    Each club organizer belongs to exactly one club.
-    """
+    """Club organizer profile - belongs to one club assigned by admin."""
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='club_organizer_profile')
     club = models.ForeignKey('Club', on_delete=models.SET_NULL, null=True, blank=True, related_name='organizers')
     phone_number = models.CharField(max_length=15, blank=True, null=True)
     date_of_birth = models.DateField(blank=True, null=True)
     address = models.TextField(blank=True, null=True)
     profile_photo = models.ImageField(upload_to='profile_photos/club_organizers/', blank=True, null=True)
-    designation_in_club = models.CharField(max_length=100, blank=True, null=True, help_text="e.g., President, Secretary, Treasurer, Coordinator")
+    designation_in_club = models.CharField(max_length=100, blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
     profile_completed = models.BooleanField(default=False)
     profile_completed_at = models.DateTimeField(blank=True, null=True)
@@ -198,8 +184,8 @@ class HallBooking(models.Model):
     )
     
     hall = models.ForeignKey(Hall, on_delete=models.CASCADE, related_name='bookings')
-    event = models.ForeignKey('Event', on_delete=models.CASCADE, related_name='hall_bookings', blank=True, null=True)
-    booked_by = models.ForeignKey('ClubMember', on_delete=models.CASCADE, related_name='hall_bookings', blank=True, null=True)
+    event = models.ForeignKey('Event', on_delete=models.CASCADE, related_name='hall_bookings')
+    booked_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='hall_bookings')
     booking_date = models.DateField()
     start_time = models.TimeField()
     end_time = models.TimeField()
@@ -237,8 +223,14 @@ class Event(models.Model):
     event_date = models.DateField()
     start_time = models.TimeField()
     end_time = models.TimeField(blank=True, null=True)
+    end_date = models.DateField(blank=True, null=True, help_text="For multi-day events. If null, event is single-day")
     max_participants = models.IntegerField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    
+    # AICTE Points Configuration
+    aicte_category = models.ForeignKey('AICTECategory', on_delete=models.SET_NULL, null=True, blank=True, related_name='events')
+    points_awarded = models.IntegerField(default=0, help_text="Points awarded per attendance")
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
@@ -248,6 +240,10 @@ class Event(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.event_date})"
+
+    def clean(self):
+        if self.end_date and self.end_date < self.event_date:
+            raise ValidationError("End date must be after or equal to start date")
 
 
 class EventAttendance(models.Model):
@@ -259,9 +255,7 @@ class EventAttendance(models.Model):
 
     class Meta:
         unique_together = ('event', 'student')
-        indexes = [
-            models.Index(fields=['event', 'student']),
-        ]
+        indexes = [models.Index(fields=['event', 'student'])]
 
     def __str__(self):
         status = "Present" if self.is_present else "Absent"

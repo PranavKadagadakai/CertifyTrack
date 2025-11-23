@@ -11,6 +11,12 @@ from .views import (
     # Student Management
     StudentViewSet,
     
+    # Mentor Management
+    MentorViewSet,
+    
+    # Club Organizer Management
+    ClubOrganizerViewSet,
+    
     # User Management
     AdminUserCreationView, BulkUserCreationView,
     
@@ -47,6 +53,8 @@ router = DefaultRouter()
 
 # ViewSet registrations
 router.register(r'students', StudentViewSet, basename='student')
+router.register(r'mentors', MentorViewSet, basename='mentor')
+router.register(r'club-organizers', ClubOrganizerViewSet, basename='club-organizer')
 router.register(r'admin/users', AdminUserListViewSet, basename='admin-user-list')
 router.register(r'admin/clubs', AdminClubManagementViewSet, basename='admin-club-management')
 router.register(r'admin/mentees', AdminMenteeAssignmentViewSet, basename='admin-mentee-assignment')
@@ -88,6 +96,11 @@ urlpatterns = [
     # Admin user management
     path('admin/users/create/', AdminUserCreationView.as_view(), name='admin-create-user'),
     path('admin/users/bulk-create/', BulkUserCreationView.as_view(), name='admin-bulk-create-users'),
+    
+    # Admin Club management
+    path('admin/clubs/create/', AdminClubManagementViewSet.as_view({'post': 'create'}), name='admin-create-club'),
+    path('admin/clubs/<int:pk>/assign-organizer/', AdminClubManagementViewSet.as_view({'post': 'assign_organizer'}), name='assign-organizer'),
+    path('admin/clubs/<int:pk>/assign-coordinator/', AdminClubManagementViewSet.as_view({'post': 'assign_coordinator'}), name='assign-coordinator'),
     
     # Mentor-mentee management
     path('admin/mentees/assign/', MentorMenteeAssignmentView.as_view(), name='admin-assign-mentees'),

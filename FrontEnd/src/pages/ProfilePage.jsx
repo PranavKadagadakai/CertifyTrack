@@ -25,10 +25,10 @@ function ProfilePage() {
       setLoading(true);
       const response = await api.get("/profile/");
       setProfile(response.data);
+      // console.log("Fetched profile:", response.data);
 
       // Initialize form with existing data
       const data = { ...response.data };
-      delete data.user;
       delete data.profile_completed_at;
       delete data.created_at;
       delete data.updated_at;
@@ -77,17 +77,14 @@ function ProfilePage() {
 
       // Add all form fields
       Object.keys(formData).forEach((key) => {
-        if (
-          formData[key] !== null &&
-          formData[key] !== undefined &&
-          formData[key] !== ""
-        ) {
-          submitData.append(key, formData[key]);
+        const value = formData[key];
+        if (value !== null && value !== undefined && value !== "") {
+          submitData.append(key, value);
         }
       });
 
-      // Add photo if changed
-      if (profilePhoto) {
+      // Only add profile_photo if a new file is selected
+      if (profilePhoto instanceof File) {
         submitData.append("profile_photo", profilePhoto);
       }
 
@@ -103,7 +100,6 @@ function ProfilePage() {
       // Reset photo state
       setProfilePhoto(null);
 
-      // Refresh after 2 seconds
       setTimeout(() => {
         setSuccess("");
       }, 2000);
@@ -217,9 +213,39 @@ function ProfilePage() {
                   <label className="block text-sm font-medium text-gray-700">
                     Username
                   </label>
-                  <p className="mt-1 text-gray-900 font-medium">
-                    {profile.user?.username}
-                  </p>
+                  <input
+                    type="text"
+                    name="username"
+                    value={formData.username || profile.user?.username || ""}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    name="first_name"
+                    value={
+                      formData.first_name || profile.user?.first_name || ""
+                    }
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    name="last_name"
+                    value={formData.last_name || profile.user?.last_name || ""}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
@@ -227,22 +253,6 @@ function ProfilePage() {
                   </label>
                   <p className="mt-1 text-gray-900 font-medium">
                     {profile.user?.email}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    First Name
-                  </label>
-                  <p className="mt-1 text-gray-900 font-medium">
-                    {profile.user?.first_name || "Not set"}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Last Name
-                  </label>
-                  <p className="mt-1 text-gray-900 font-medium">
-                    {profile.user?.last_name || "Not set"}
                   </p>
                 </div>
               </div>

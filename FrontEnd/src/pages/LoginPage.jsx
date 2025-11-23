@@ -1,13 +1,13 @@
 import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import api from "../api";
+import { Link } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 const LoginPage = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -15,20 +15,7 @@ const LoginPage = () => {
     setLoading(true);
 
     try {
-      const response = await api.post("/auth/login/", {
-        username,
-        password,
-      });
-
-      const { access, refresh, user } = response.data;
-
-      // Save tokens and user info
-      localStorage.setItem("access", access);
-      localStorage.setItem("refresh", refresh);
-      localStorage.setItem("user", JSON.stringify(user));
-
-      // Redirect to dashboard (role-based rendering handled by App.jsx)
-      navigate("/dashboard");
+      await login(username, password); // use AuthContext login
     } catch (err) {
       setError(err.response?.data?.error || "Login failed. Please try again.");
     } finally {

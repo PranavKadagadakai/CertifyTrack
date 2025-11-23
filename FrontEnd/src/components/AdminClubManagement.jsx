@@ -5,10 +5,13 @@ const AdminClubManagement = () => {
   const [clubs, setClubs] = useState([]);
   const [mentors, setMentors] = useState([]);
   const [students, setStudents] = useState([]);
+  const [organizers, setOrganizers] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
+
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -23,14 +26,20 @@ const AdminClubManagement = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [clubsRes, mentorsRes, studentsRes] = await Promise.all([
-        api.get("/admin/clubs/"),
-        api.get("/admin/users/?user_type=mentor"),
-        api.get("/students/"),
-      ]);
+
+      const [clubsRes, mentorsRes, studentsRes, organizersRes] =
+        await Promise.all([
+          api.get("/admin/clubs/"),
+          api.get("/mentors/"),
+          api.get("/students/"),
+          api.get("/club-organizers/"),
+        ]);
+
       setClubs(clubsRes.data.results || clubsRes.data);
       setMentors(mentorsRes.data.results || mentorsRes.data);
       setStudents(studentsRes.data.results || studentsRes.data);
+      setOrganizers(organizersRes.data.results || organizersRes.data);
+
       setLoading(false);
     } catch (err) {
       setError("Failed to load data");
@@ -42,13 +51,17 @@ const AdminClubManagement = () => {
     e.preventDefault();
     try {
       setError("");
+      setSuccess("");
+
       const payload = {
         name: formData.name,
         description: formData.description,
         faculty_coordinator: formData.faculty_coordinator || null,
         established_date: formData.established_date || null,
       };
+
       await api.post("/admin/clubs/", payload);
+
       setSuccess("Club created successfully!");
       setFormData({
         name: "",
@@ -56,6 +69,7 @@ const AdminClubManagement = () => {
         faculty_coordinator: null,
         established_date: "",
       });
+
       setShowCreateForm(false);
       fetchData();
     } catch (err) {
@@ -65,12 +79,12 @@ const AdminClubManagement = () => {
 
   const handleAssignCoordinator = async (clubId, mentorId) => {
     try {
-      await api.post(`/admin/clubs/${clubId}/assign_faculty_coordinator/`, {
+      await api.post(`/admin/clubs/${clubId}/assign_coordinator/`, {
         mentor_id: mentorId,
       });
       setSuccess("Faculty coordinator assigned successfully");
       fetchData();
-    } catch (err) {
+    } catch {
       setError("Failed to assign coordinator");
     }
   };
@@ -82,8 +96,20 @@ const AdminClubManagement = () => {
       });
       setSuccess("Club head assigned successfully");
       fetchData();
-    } catch (err) {
+    } catch {
       setError("Failed to assign club head");
+    }
+  };
+
+  const handleAssignOrganizer = async (clubId, organizerId) => {
+    try {
+      await api.post(`/admin/clubs/${clubId}/assign_organizer/`, {
+        organizer_id: organizerId,
+      });
+      setSuccess("Organizer assigned successfully");
+      fetchData();
+    } catch {
+      setError("Failed to assign organizer");
     }
   };
 
@@ -91,6 +117,7 @@ const AdminClubManagement = () => {
 
   return (
     <div className="space-y-6">
+      {/* Alerts */}
       {error && (
         <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded">
           {error}
@@ -106,62 +133,86 @@ const AdminClubManagement = () => {
       <div className="bg-white p-6 rounded-lg shadow">
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           ➕ Create Club
         </button>
       </div>
 
-      {/* Create Form */}
+      {/* Create Club Form */}
       {showCreateForm && (
         <div className="bg-white p-6 rounded-lg shadow">
           <h3 className="text-lg font-bold mb-4">Create New Club</h3>
+
           <form onSubmit={handleCreateClub} className="space-y-4">
-            <input
-              type="text"
-              placeholder="Club Name"
-              value={formData.name}
-              onChange={(e) =>
-                setFormData({ ...formData, name: e.target.value })
-              }
-              required
-              className="w-full px-4 py-2 border rounded-lg"
-            />
-            <textarea
-              placeholder="Description"
-              value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
-              className="w-full px-4 py-2 border rounded-lg"
-              rows="4"
-            />
-            <input
-              type="date"
-              value={formData.established_date}
-              onChange={(e) =>
-                setFormData({ ...formData, established_date: e.target.value })
-              }
-              className="w-full px-4 py-2 border rounded-lg"
-            />
-            <select
-              value={formData.faculty_coordinator}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  faculty_coordinator: e.target.value,
-                })
-              }
-              className="w-full px-4 py-2 border rounded-lg"
-            >
-              <option value="">Select Faculty Coordinator (optional)</option>
-              {mentors.map((mentor) => (
-                <option key={mentor.id} value={mentor.id}>
-                  {mentor.user_details?.first_name}{" "}
-                  {mentor.user_details?.last_name}
-                </option>
-              ))}
-            </select>
+            <div>
+              <label className="block text-sm font-medium">Club Name</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
+                required
+                className="w-full px-4 py-2 border rounded-lg"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium">
+                Club Description
+              </label>
+              <textarea
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
+                className="w-full px-4 py-2 border rounded-lg"
+                rows="4"
+              ></textarea>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium">
+                Established Date
+              </label>
+              <input
+                type="date"
+                value={formData.established_date}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    established_date: e.target.value,
+                  })
+                }
+                className="w-full px-4 py-2 border rounded-lg"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium">
+                Faculty Coordinator (Optional)
+              </label>
+              <select
+                value={formData.faculty_coordinator || ""}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    faculty_coordinator: e.target.value,
+                  })
+                }
+                className="w-full px-4 py-2 border rounded-lg"
+              >
+                <option value="">Select Faculty Coordinator</option>
+                {mentors.map((mentor) => (
+                  <option key={mentor.id} value={mentor.id}>
+                    {mentor.user_details?.first_name}{" "}
+                    {mentor.user_details?.last_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="flex gap-4">
               <button
                 type="submit"
@@ -187,7 +238,9 @@ const AdminClubManagement = () => {
           <div key={club.id} className="bg-white p-6 rounded-lg shadow">
             <h3 className="text-xl font-bold mb-2">{club.name}</h3>
             <p className="text-gray-600 mb-4">{club.description}</p>
-            <div className="space-y-3">
+
+            <div className="space-y-4">
+              {/* Faculty Coordinator */}
               <div>
                 <label className="text-sm font-medium text-gray-700">
                   Faculty Coordinator
@@ -197,7 +250,7 @@ const AdminClubManagement = () => {
                   onChange={(e) =>
                     handleAssignCoordinator(club.id, e.target.value)
                   }
-                  className="w-full px-3 py-1 border rounded text-sm"
+                  className="w-full px-3 py-2 border rounded"
                 >
                   <option value="">Select Mentor</option>
                   {mentors.map((mentor) => (
@@ -208,6 +261,8 @@ const AdminClubManagement = () => {
                   ))}
                 </select>
               </div>
+
+              {/* Club Head */}
               <div>
                 <label className="text-sm font-medium text-gray-700">
                   Club Head
@@ -215,7 +270,7 @@ const AdminClubManagement = () => {
                 <select
                   value={club.club_head || ""}
                   onChange={(e) => handleAssignHead(club.id, e.target.value)}
-                  className="w-full px-3 py-1 border rounded text-sm"
+                  className="w-full px-3 py-2 border rounded"
                 >
                   <option value="">Select Student</option>
                   {students.map((student) => (
@@ -226,6 +281,49 @@ const AdminClubManagement = () => {
                   ))}
                 </select>
               </div>
+
+              {/* Assign Organizer */}
+              <div>
+                <label className="text-sm font-medium text-gray-700">
+                  Assign Organizer
+                </label>
+                <select
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      handleAssignOrganizer(club.id, e.target.value);
+                      e.target.value = "";
+                    }
+                  }}
+                  className="w-full px-3 py-2 border rounded"
+                >
+                  <option value="">Select Organizer</option>
+                  {organizers.map((org) => (
+                    <option key={org.id} value={org.id}>
+                      {org.first_name} {org.last_name}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Show current organizers */}
+                <div className="mt-2">
+                  <p className="text-sm font-medium">Current Organizers:</p>
+                  {club.organizers && club.organizers.length > 0 ? (
+                    <ul className="text-sm list-disc ml-4">
+                      {club.organizers.map((org) => (
+                        <li key={org.id}>
+                          {org.user?.first_name} {org.user?.last_name}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-500">
+                      No organizers assigned
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Additional Info */}
               <div className="text-sm text-gray-600">
                 <p>👥 Members: {club.members?.length || 0}</p>
                 <p>📅 Established: {club.established_date || "N/A"}</p>

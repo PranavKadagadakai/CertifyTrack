@@ -22,6 +22,7 @@ const App = () => {
   const PrivateRoute = ({ children, userType }) => {
     if (!user) return <Navigate to="/login" />;
     // backend uses user.user_type (student, mentor, club_organizer, admin)
+    // console.log(user);
     if (userType && user.user_type !== userType)
       return <Navigate to="/dashboard" />;
     return children;
@@ -40,7 +41,7 @@ const App = () => {
           path="/dashboard"
           element={
             <PrivateRoute>
-              {user?.user_type === "student" && <StudentDashboard />}
+              {user?.user?.user_type === "student" && <StudentDashboard />}
               {user?.user?.user_type === "mentor" && <MentorDashboard />}
               {user?.user?.user_type === "club_organizer" && <ClubDashboard />}
               {user?.user_type === "admin" && <AdminDashboard />}
