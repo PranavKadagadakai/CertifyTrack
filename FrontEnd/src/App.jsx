@@ -44,10 +44,6 @@ const App = () => {
               {user?.user?.user_type === "mentor" && <MentorDashboard />}
               {user?.user?.user_type === "club_organizer" && <ClubDashboard />}
               {user?.user_type === "admin" && <AdminDashboard />}
-              {/* default fallback: show student dashboard if unknown */}
-              {!["student", "mentor", "club_organizer", "admin"].includes(
-                user?.user_type
-              ) && <StudentDashboard />}
             </PrivateRoute>
           }
         />

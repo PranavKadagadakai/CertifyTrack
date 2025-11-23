@@ -860,7 +860,7 @@ class AdminClubManagementViewSet(viewsets.ModelViewSet):
             return Response({'error': 'mentor_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            mentor = Mentor.objects.get(id=mentor_id)
+            mentor = Mentor.objects.get(employee_id=mentor_id)
             club.faculty_coordinator = mentor
             club.save()
             log_action(request.user, f"Assigned {mentor.user.username} as coordinator to club {club.name}")

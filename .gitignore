@@ -11,5 +11,5 @@ db.sqlite3
 .idea/
 .vscode/
 pranavkadagadakai-certifytrack.txt
-!CertifyTrack_SRSv2.1.md
+CertifyTrack_SRSv2.1.md
 certifytrack_schema.sql
