@@ -10,7 +10,7 @@ const SignupPage = () => {
     password: "",
     password_confirm: "",
     fullName: "",
-    role: "student",
+    role: "",
     usn: "",
     department: "",
     semester: 1,
@@ -22,6 +22,7 @@ const SignupPage = () => {
   const [passwordError, setPasswordError] = useState("");
 
   const departments = ["CSE", "ECE", "ISE", "ME", "EEE", "Civil", "AIML", "DS"];
+  const roles = ["student", "mentor", "club_organizer"];
 
   const validatePassword = (pwd) => {
     if (pwd.length < 8) {
@@ -204,9 +205,12 @@ const SignupPage = () => {
               onChange={handleChange}
               className="w-full px-3 py-2 mt-1 border rounded-md"
             >
-              <option value="student">Student</option>
-              <option value="mentor">Mentor</option>
-              <option value="club_organizer">Club Organizer</option>
+              <option value="">Select Role</option>
+              {roles.map((role) => (
+                <option key={role} value={role}>
+                  {role}
+                </option>
+              ))}
             </select>
           </div>
 
