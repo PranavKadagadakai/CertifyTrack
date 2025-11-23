@@ -1,0 +1,52 @@
+# Backend Requirements for Docker
+
+# Core Django packages
+Django==5.2.6
+djangorestframework==3.16.1
+django-cors-headers==4.3.1
+djangorestframework-simplejwt==5.5.0
+python-decouple==3.8
+
+# Database
+psycopg2-binary==2.9.9
+psycopg[binary]==3.18.0
+
+# Caching and Sessions
+redis==5.0.7
+django-redis==5.4.0
+
+# File handling and Media
+Pillow==10.0.1
+django-storages==1.14.2
+
+# PDF Generation
+reportlab==4.0.7
+PyPDF2==3.0.1
+
+# Email
+django-anymail==10.0
+
+# Admin interface enhancements
+django-admin-interface==0.25.1
+
+# API utilities
+djangorestframework-filters==1.0.0.dev0
+django-filter==24.1
+
+# Environment variables
+python-decouple==3.8
+
+# Security
+django-cors-headers==4.3.1
+django-ratelimit==4.1.0
+
+# Production server
+gunicorn==22.0.0
+whitenoise==6.6.0
+
+# Monitoring and logging
+sentry-sdk==1.45.1
+
+# Development tools (optional, can be removed for production)
+django-debug-toolbar==4.3.0
+django-extensions==3.2.3

@@ -909,7 +909,9 @@ class AdminMenteeAssignmentViewSet(viewsets.ViewSet):
     
     @action(detail=False, methods=['post'])
     def bulk_assign(self, request):
-        """Bulk assign mentees to mentors from CSV"""
+        """Bulk assign mentees to mentors from CSV
+        CSV format: mentor_employee_id,student_usn
+        """
         csv_file = request.FILES.get('csv_file')
         if not csv_file:
             return Response({'error': 'CSV file required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -923,20 +925,27 @@ class AdminMenteeAssignmentViewSet(viewsets.ViewSet):
             
             for row_num, row in enumerate(csv_reader, start=2):
                 try:
-                    mentor_id = row.get('mentor_id')
+                    mentor_emp_id = row.get('mentor_employee_id', '').strip()
                     student_usn = row.get('student_usn', '').strip()
                     
-                    if not all([mentor_id, student_usn]):
-                        errors.append(f"Row {row_num}: Missing mentor_id or student_usn")
+                    if not all([mentor_emp_id, student_usn]):
+                        errors.append(f"Row {row_num}: Missing mentor_employee_id or student_usn")
                         continue
                     
-                    mentor = Mentor.objects.get(id=mentor_id)
-                    student = Student.objects.get(usn=student_usn)
+                    mentor = Mentor.objects.filter(employee_id=mentor_emp_id).first()
+                    if not mentor:
+                        errors.append(f"Row {row_num}: Mentor with employee ID {mentor_emp_id} not found")
+                        continue
+                    
+                    student = Student.objects.filter(usn=student_usn).first()
+                    if not student:
+                        errors.append(f"Row {row_num}: Student with USN {student_usn} not found")
+                        continue
                     
                     student.mentor = mentor
                     student.save()
                     assigned += 1
-                    log_action(request.user, f"Assigned mentee {student_usn} to mentor {mentor.employee_id}")
+                    log_action(request.user, f"Assigned mentee {student_usn} to mentor {mentor_emp_id}")
                 except Exception as e:
                     errors.append(f"Row {row_num}: {str(e)}")
             

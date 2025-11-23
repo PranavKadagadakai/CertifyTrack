@@ -100,6 +100,7 @@ def send_verification_email(user):
     subject = "Verify Your CertifyTrack Email"
     html_message = get_verification_email_html(user_name, verification_url, user.email_verification_token, settings.FRONTEND_URL)
     plain_message = get_verification_email_text(user_name, verification_url)
+    print(f"[Email Verification] Sent verification email to {user.email} with token: {user.email_verification_token}")
     
     send_mail(
         subject,
@@ -217,6 +218,7 @@ def send_password_reset_email(user, otp):
     subject = "Password Reset Code - CertifyTrack"
     html_message = get_password_reset_email_html(user_name, otp, settings.PASSWORD_RESET_TIMEOUT_MINUTES, settings.FRONTEND_URL)
     plain_message = get_password_reset_email_text(user_name, otp, settings.PASSWORD_RESET_TIMEOUT_MINUTES)
+    print(f"[Password Reset] Sent password reset email to {user.email} with OTP: {otp}")
     
     send_mail(
         subject,

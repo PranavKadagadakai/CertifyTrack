@@ -11,20 +11,7 @@ from .models import (
     Notification, AuditLog, ClubMember, ClubRole, EventAttendance,
     CertificateTemplate
 )
-
-
-def send_verification_email(user):
-    """
-    Stub to send email verification. Replace with real email backend in production.
-    """
-    print(f"[Email Verification] Sent verification email to {user.email} with token: {user.email_verification_token}")
-
-
-def send_password_reset_email(user, otp):
-    """
-    Stub to send password reset OTP. Replace with real email backend in production.
-    """
-    print(f"[Password Reset] Sent OTP to {user.email}: {otp}")
+from .email_utils import send_verification_email, send_password_reset_email
 
 
 class UserSerializer(serializers.ModelSerializer):

@@ -14,11 +14,13 @@ Modified to:
 import os
 from pathlib import Path
 from datetime import timedelta
+import dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Read environment variables (simple pattern).
+dotenv.load_dotenv(BASE_DIR.parent / '.env')
 SECRET_KEY = os.getenv(
     "DJANGO_SECRET_KEY",
     "django-insecure-j-%f((oz!3^^$jtwyor=^t4nkj&ce)v$0j^9554&jl%+p_q*%5"  # local/dev fallback (DO NOT use in production)
@@ -78,12 +80,12 @@ WSGI_APPLICATION = 'CertifyTrack.wsgi.application'
 if os.getenv("POSTGRES_DB"):
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.getenv("POSTGRES_DB"),
-            'USER': os.getenv("POSTGRES_USER", "postgres"),
-            'PASSWORD': os.getenv("POSTGRES_PASSWORD", ""),
-            'HOST': os.getenv("POSTGRES_HOST", "localhost"),
-            'PORT': os.getenv("POSTGRES_PORT", "5432"),
+            'ENGINE': os.getenv("DB_ENGINE"),
+            'NAME': os.getenv("DB_NAME"),
+            'USER': os.getenv("DB_USER", "postgres"),
+            'PASSWORD': os.getenv("DB_PASSWORD", ""),
+            'HOST': os.getenv("DB_HOST", "localhost"),
+            'PORT': os.getenv("DB_PORT", "5432"),
         }
     }
 else:
@@ -198,7 +200,7 @@ LOGGING = {
 # Email Configuration
 EMAIL_BACKEND = os.getenv(
     "EMAIL_BACKEND",
-    "django.core.mail.backends.console.EmailBackend"  # Console backend for development
+    "django.core.mail.backends.smtp.EmailBackend"  # SMTP backend for sending real emails
 )
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
