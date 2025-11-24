@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import api from "../api";
+import EventAttendanceForm from "./EventAttendanceForm";
 
 const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
   const [events, setEvents] = useState([]);
@@ -11,6 +12,10 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
 
   const [showForm, setShowForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
+
+  // NEW: attendance upload modal
+  const [showAttendanceUpload, setShowAttendanceUpload] = useState(false);
+  const [attendanceEventId, setAttendanceEventId] = useState(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -91,15 +96,12 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
     }
 
     setLoading(true);
-
     try {
       if (editingEvent) {
-        // Update
         await api.patch(`/events/${editingEvent.id}/`, formData);
         setSuccess("Event updated successfully!");
         onEventUpdated?.(formData);
       } else {
-        // Create
         const response = await api.post("/events/", formData);
         setSuccess("Event created successfully!");
         onEventCreated?.(response.data);
@@ -145,11 +147,17 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
     }
   };
 
+  // NEW: detect complete → open attendance upload modal
   const handleStatusChange = async (eventId, newStatus) => {
     try {
       await api.patch(`/events/${eventId}/`, { status: newStatus });
       setSuccess(`Event status updated to ${newStatus}`);
       fetchEvents();
+
+      if (newStatus === "completed") {
+        setAttendanceEventId(eventId);
+        setShowAttendanceUpload(true);
+      }
     } catch (err) {
       setError("Failed to update event status");
     }
@@ -193,7 +201,6 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
             {editingEvent ? "Edit Event" : "Create New Event"}
           </h3>
 
-          {/* Event Name */}
           <div>
             <label className="block text-sm mb-1 font-medium">
               Event Name *
@@ -209,7 +216,6 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
             />
           </div>
 
-          {/* Description */}
           <div>
             <label className="block text-sm mb-1 font-medium">
               Description
@@ -224,7 +230,6 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
             />
           </div>
 
-          {/* Dates */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm mb-1 font-medium">
@@ -252,7 +257,6 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
             </div>
           </div>
 
-          {/* Times */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm mb-1 font-medium">
@@ -280,7 +284,6 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
             </div>
           </div>
 
-          {/* Participants */}
           <div>
             <label className="block text-sm mb-1 font-medium">
               Max Participants
@@ -296,7 +299,6 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
             />
           </div>
 
-          {/* AICTE Category */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm mb-1 font-medium">
@@ -428,9 +430,11 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
 
                       {event.status === "ongoing" && (
                         <button
-                          onClick={() =>
-                            handleStatusChange(event.id, "completed")
-                          }
+                          onClick={() => {
+                            handleStatusChange(event.id, "completed");
+                            setAttendanceEventId(event.id);
+                            setShowAttendanceUpload(true);
+                          }}
                           className="px-3 py-1 bg-green-600 text-white rounded text-xs"
                         >
                           Complete
@@ -441,6 +445,26 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Attendance Upload Modal */}
+        {showAttendanceUpload && (
+          <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded shadow-xl w-[600px] max-h-[80vh] overflow-y-auto">
+              <h2 className="text-xl font-semibold mb-4">
+                Upload Attendance for Event #{attendanceEventId}
+              </h2>
+
+              <EventAttendanceForm eventId={attendanceEventId} />
+
+              <button
+                onClick={() => setShowAttendanceUpload(false)}
+                className="mt-4 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+              >
+                Close
+              </button>
+            </div>
           </div>
         )}
       </div>

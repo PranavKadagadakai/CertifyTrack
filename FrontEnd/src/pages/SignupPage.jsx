@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import api from "../api";
+import { useAuth } from "../context/AuthContext";
 
 const SignupPage = () => {
   const navigate = useNavigate();
@@ -20,6 +20,7 @@ const SignupPage = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const { register } = useAuth();
 
   const departments = ["CSE", "ECE", "ISE", "ME", "EEE", "Civil", "AIML", "DS"];
   const roles = ["student", "mentor", "club_organizer"];
@@ -78,7 +79,7 @@ const SignupPage = () => {
     }
 
     try {
-      await api.post("/auth/register/", {
+      await register({
         username: formData.username,
         email: formData.email,
         password: formData.password,
@@ -96,10 +97,11 @@ const SignupPage = () => {
           designation: formData.designation,
         }),
       });
+
       setSuccess(
         "Registration successful! Redirecting to email verification..."
       );
-      setTimeout(() => navigate("/verify-email"), 1500);
+      setTimeout(() => navigate("/verify-email"), 1100);
     } catch (err) {
       const errorData = err.response?.data;
       if (errorData?.usn) {

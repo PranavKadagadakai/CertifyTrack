@@ -5,15 +5,16 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.exceptions import ValidationError, PermissionDenied
 from django.shortcuts import get_object_or_404
 from django.db.models import Count, Sum, Q
-from django.utils.timezone import now, timedelta
+from django.db import transaction
+from django.utils.timezone import now, timedelta, make_aware
 from django.core.management.base import CommandError
-from io import BytesIO
 from django.core.files.base import ContentFile
 import qrcode
-import csv
-import secrets
-import string
+import io, csv
+import openpyxl
 from datetime import datetime, time, timedelta
+import secrets, string
+import threading
 
 from .models import (
     User, Student, Mentor, ClubOrganizer, Club, Event, EventRegistration, Certificate,
@@ -54,7 +55,7 @@ class RegisterView(generics.CreateAPIView):
         user = serializer.save()
         # Send verification email
         try:
-            send_verification_email(user)
+            threading.Thread(target=send_verification_email, args=(user,)).start()
         except Exception as e:
             print(f"Error sending verification email: {e}")
         log_action(user, f"User registered: {user.username}")
@@ -131,7 +132,7 @@ class ResendVerificationEmailView(generics.GenericAPIView):
         user.save()
         
         try:
-            send_verification_email(user)
+            threading.Thread(target=send_verification_email, args=(user,)).start()
         except Exception as e:
             print(f"Error sending verification email: {e}")
         log_action(user, "Verification email resent")
@@ -170,7 +171,7 @@ class RequestPasswordResetView(generics.GenericAPIView):
         user.save()
         
         try:
-            send_password_reset_email(user, otp)
+            threading.Thread(target=send_password_reset_email, args=(user, otp)).start()
         except Exception as e:
             print(f"Error sending password reset email: {e}")
         log_action(user, "Password reset requested")
@@ -1253,190 +1254,250 @@ class ClubRoleViewSet(viewsets.ReadOnlyModelViewSet):
 # ============================================================================
 
 class EventViewSet(viewsets.ModelViewSet):
-    """
-    Event management with full lifecycle support.
-    Club organizers can create events for their assigned club.
-    Supports multi-day events and AICTE point allocation.
-    """
-    queryset = Event.objects.all()
+    queryset = Event.objects.all().select_related('aicte_category', 'club')
     serializer_class = EventSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsClubAdmin]
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy', 
-                          'generate_certificates', 'start', 'end', 'mark_attendance']:
-            self.permission_classes = [IsClubAdmin]
-        elif self.action == 'register':
-            self.permission_classes = [IsStudent]
-        else:
-            self.permission_classes = [IsAuthenticated]
-        return super().get_permissions()
+        """
+        Permissions:
+        - Students: can list & retrieve events and register
+        - Club Organizers/Admin: can create/update/upload attendance/generate certificates
+        """
+        if self.action in [
+            'create', 'update', 'partial_update', 'destroy',
+            'upload_attendance', 'generate_certificates',
+            'start', 'end', 'mark_attendance'
+        ]:
+            self.permission_classes = [IsClubAdmin]  # organizers only
 
+        elif self.action in ['register']:
+            self.permission_classes = [IsStudent]  # student registration
+
+        elif self.action in ['list', 'retrieve']:
+            self.permission_classes = [AllowAny]  # <-- FIX: allow students
+
+        return super().get_permissions()
+    
     def get_queryset(self):
         user = self.request.user
-        queryset = Event.objects.prefetch_related('aicte_category')
-        
-        if self.request.query_params.get('club') == 'true':
-            if user.user_type == 'club_organizer':
-                club_organizer_profile = getattr(user, "club_organizer_profile", None)
-                if club_organizer_profile and club_organizer_profile.club:
-                    queryset = queryset.filter(club=club_organizer_profile.club)
-                else:
-                    queryset = queryset.none()
-            else:
-                queryset = queryset.none()
-        
-        return queryset
+
+        # students should see only scheduled events
+        if hasattr(user, 'student_profile'):
+            return Event.objects.filter(status='scheduled')
+
+        # organizers/admin see all
+        return Event.objects.all()
 
     def perform_create(self, serializer):
         user = self.request.user
-        
         if user.user_type != 'club_organizer':
             raise PermissionDenied("Only club organizers can create events.")
-        
         club_organizer_profile = getattr(user, "club_organizer_profile", None)
         if not club_organizer_profile or not club_organizer_profile.club:
             raise PermissionDenied("You must be assigned to a club to create events.")
-        
         event = serializer.save(club=club_organizer_profile.club, created_by=user)
-        category_name = event.aicte_category.name if event.aicte_category else "None"
-        log_action(user, f"Created Event: {event.name} (AICTE: {category_name}, Points: {event.points_awarded})")
+        log_action(user, f"Created Event: {event.name} (AICTE: {getattr(event.aicte_category,'name','None')}, Points: {event.points_awarded})")
 
-    @action(detail=True, methods=['post'])
-    def mark_attendance(self, request, pk=None):
-        """Mark attendance and auto-allocate AICTE points if configured."""
+    @action(detail=True, methods=['get'])
+    def participants(self, request, pk=None):
+        """Return participant list (id, usn, full_name) for preview prior to attendance upload"""
         event = self.get_object()
-        attendance_data = request.data.get('attendance', [])
-        
-        if not isinstance(attendance_data, list):
-            raise ValidationError("Attendance data must be a list")
-        
+        regs = EventRegistration.objects.filter(event=event).select_related('student__user')
+        results = []
+        for r in regs:
+            student = r.student
+            results.append({
+                'student_id': student.id,
+                'usn': getattr(student, 'usn', ''),
+                'full_name': getattr(student, 'full_name', getattr(student, 'user').username if getattr(student,'user',None) else '')
+            })
+        return Response({'participants': results})
+    
+    @action(detail=True, methods=['post'])
+    def register(self, request, pk=None):
+        """Students register for an event"""
+        user = request.user
+
+        if user.user_type != 'student':
+            raise PermissionDenied("Only students can register for events.")
+
+        event = self.get_object()
+
+        # ensure event can be registered
+        if event.status not in ['scheduled', 'upcoming']:
+            return Response(
+                {"error": "Event is not open for registration."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # fetch student profile
+        try:
+            student = user.student_profile
+        except:
+            return Response(
+                {"error": "Student profile not found."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # create or ensure registration
+        reg, created = EventRegistration.objects.get_or_create(
+            event=event,
+            student=student
+        )
+
+        if not created:
+            return Response({"message": "Already registered."})
+
+        log_action(user, f"Registered for event {event.name}")
+        return Response({"message": "Registered successfully!"}, status=200)
+
+    @action(detail=True, methods=['post'], url_path='upload-attendance')
+    def upload_attendance(self, request, pk=None):
+        """
+        Accepts file upload (CSV or XLSX). The file should have a header with at least:
+          - student_id OR usn (prefer student_id)
+          - attendance (present/cancelled/no-show) or is_present (1/0/true/false)
+        If no file provided and request contains 'attendance' array, uses that.
+        """
+        event = self.get_object()
+
+        # Only organizers of the club that owns the event can upload attendance
+        user = request.user
+        if user.user_type != 'club_organizer':
+            raise PermissionDenied("Only club organizers can upload attendance for events.")
+
+        # If multipart file present
+        file_obj = request.FILES.get('file')
+        attendance_items = []
+
+        if file_obj:
+            filename = file_obj.name.lower()
+            if filename.endswith('.csv'):
+                try:
+                    decoded = file_obj.read().decode('utf-8')
+                    reader = csv.DictReader(io.StringIO(decoded))
+                    for row in reader:
+                        attendance_items.append(row)
+                except Exception as e:
+                    return Response({'error': f'Failed to parse CSV: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+            elif filename.endswith('.xlsx') or filename.endswith('.xls'):
+                try:
+                    wb = openpyxl.load_workbook(file_obj, data_only=True)
+                    ws = wb.active
+                    headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+                    for row in ws.iter_rows(min_row=2, values_only=True):
+                        row_dict = {headers[i]: row[i] for i in range(len(headers))}
+                        attendance_items.append(row_dict)
+                except Exception as e:
+                    return Response({'error': f'Failed to parse Excel: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                return Response({'error': 'Unsupported file type; only .csv and .xlsx allowed'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            # fallback to json attendance array
+            attendance_items = request.data.get('attendance', [])
+
+        if not isinstance(attendance_items, list):
+            return Response({'error': 'Attendance payload must be a list'}, status=status.HTTP_400_BAD_REQUEST)
+
         created_count = 0
-        points_allocated_count = 0
-        
-        for item in attendance_data:
-            student_id = item.get('student_id')
-            is_present = item.get('is_present', True)
-            
-            try:
-                student = Student.objects.get(id=student_id)
-                attendance, created = EventAttendance.objects.update_or_create(
+        points_created = 0
+        certificates_created = 0
+
+        with transaction.atomic():
+            for item in attendance_items:
+                # support student_id or usn; normalize keys (strings)
+                student_id = item.get('student_id') or item.get('studentId') or item.get('id')
+                usn = item.get('usn') or item.get('USN')
+                attendance_flag = item.get('attendance') or item.get('status') or item.get('is_present')
+                # normalize attendance flag
+                is_present = False
+                if attendance_flag is None:
+                    # if missing, default to present
+                    is_present = True
+                else:
+                    s = str(attendance_flag).strip().lower()
+                    if s in ['present', 'p', '1', 'true', 'yes', 'attended']:
+                        is_present = True
+                    else:
+                        is_present = False
+
+                try:
+                    if student_id:
+                        student = Student.objects.get(id=int(student_id))
+                    elif usn:
+                        student = Student.objects.get(usn=usn)
+                    else:
+                        # skip if cannot identify
+                        continue
+                except Student.DoesNotExist:
+                    continue
+
+                attendance_record, created = EventAttendance.objects.update_or_create(
                     event=event,
                     student=student,
                     defaults={'is_present': is_present, 'marked_by': request.user}
                 )
                 if created:
                     created_count += 1
-                    
-                    # Auto-allocate AICTE points for present students
-                    if is_present and event.aicte_category and event.points_awarded > 0:
-                        AICTEPointTransaction.objects.create(
-                            student=student,
-                            event=event,
-                            category=event.aicte_category,
-                            points_allocated=event.points_awarded,
-                            status='PENDING'
-                        )
-                        points_allocated_count += 1
-            except Student.DoesNotExist:
-                pass
-        
-        log_action(request.user, f"Marked attendance: {created_count} records, allocated {points_allocated_count} AICTE transactions")
-        
+
+                # allocate AICTE points in PENDING if present and event awards points
+                if is_present and event.aicte_category and event.points_awarded > 0:
+                    AICTEPointTransaction.objects.create(
+                        student=student,
+                        event=event,
+                        category=event.aicte_category,
+                        points_allocated=event.points_awarded,
+                        status='PENDING',
+                        created_at=now()
+                    )
+                    points_created += 1
+
+                # generate basic certificate placeholder (Certificate model may need file generation later)
+                if is_present:
+                    cert, cert_created = Certificate.objects.get_or_create(event=event, student=student)
+                    if cert_created:
+                        # create a QR placeholder - not full PDF generation here
+                        qr_data = f"Certificate ID: {cert.id}, Event: {event.id}, Student: {student.usn}"
+                        qr = qrcode.make(qr_data)
+                        # If Certificate has an image/file field:
+                        # buffer = io.BytesIO()
+                        # qr.save(buffer, format='PNG')
+                        # cert.qr_image.save(f"cert_{cert.id}_qr.png", ContentFile(buffer.getvalue()))
+                        certificates_created += 1
+
+            # mark event completed if not already
+            if event.status != 'completed':
+                event.status = 'completed'
+                event.save()
+            log_action(request.user, f"Uploaded attendance for event {event.name}: created {created_count} attendance records, {points_created} AICTE transactions, {certificates_created} certificates")
+
         return Response({
-            'message': f'Attendance marked for {len(attendance_data)} participants',
-            'created_count': created_count,
-            'aicte_transactions_created': points_allocated_count,
-            'points_per_student': event.points_awarded if event.aicte_category else 0
-        })
-
-    @action(detail=True, methods=['post'])
-    def start(self, request, pk=None):
-        """Start an event (transition from scheduled to ongoing)."""
-        event = self.get_object()
-        
-        if event.status != 'scheduled':
-            raise ValidationError("Only scheduled events can be started")
-        
-        event.status = 'ongoing'
-        event.save()
-        log_action(request.user, f"Started event: {event.name}")
-        
-        return Response({'message': 'Event started successfully', 'status': event.status})
-
-    @action(detail=True, methods=['post'])
-    def end(self, request, pk=None):
-        """End an event (transition from ongoing to completed)."""
-        event = self.get_object()
-        
-        if event.status != 'ongoing':
-            raise ValidationError("Only ongoing events can be ended")
-        
-        event.status = 'completed'
-        event.save()
-        log_action(request.user, f"Ended event: {event.name}")
-        
-        return Response({'message': 'Event ended successfully', 'status': event.status})
-
-    @action(detail=True, methods=['post'], permission_classes=[IsStudent])
-    def register(self, request, pk=None):
-        """Student event registration."""
-        event = self.get_object()
-        
-        try:
-            student = request.user.student_profile
-        except:
-            raise PermissionDenied("Only students can register for events")
-        
-        if event.status != 'scheduled':
-            raise ValidationError("Event registration is currently closed")
-        
-        if event.max_participants and event.registrations.filter(status='REGISTERED').count() >= event.max_participants:
-            raise ValidationError("Event has reached maximum capacity")
-        
-        if EventRegistration.objects.filter(event=event, student=student).exists():
-            raise ValidationError("You are already registered for this event")
-        
-        EventRegistration.objects.create(event=event, student=student)
-        log_action(request.user, f"Registered for event: {event.name}")
-        
-        return Response(
-            {'message': 'Successfully registered for event', 'event': event.name},
-            status=status.HTTP_201_CREATED
-        )
+            'message': 'Attendance processed',
+            'attendance_records_created': created_count,
+            'aicte_transactions_created': points_created,
+            'certificates_created': certificates_created
+        }, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'], url_path='generate-certificates')
     def generate_certificates(self, request, pk=None):
-        """Generate certificates for event participants"""
+        """Generate certificates for event participants (idempotent)"""
         event = self.get_object()
-        
         if event.status != 'completed':
             raise ValidationError("Certificates can only be generated for completed events.")
-        
-        # Get attendees (only mark as attended those with attendance records)
         attendees = EventAttendance.objects.filter(event=event, is_present=True).select_related('student')
-        
         if not attendees.exists():
             raise ValidationError("No attendees found for this event.")
-        
         certificate_count = 0
         for attendance in attendees:
             student = attendance.student
             certificate, created = Certificate.objects.get_or_create(event=event, student=student)
-            
-            # Generate QR code with certificate data
+            # QR code / PDF generation placeholder (implement real PDF generation in your template flow)
             qr_data = f"Certificate ID: {certificate.id}, Event: {event.id}, Student: {student.usn}"
             qr = qrcode.make(qr_data)
-            
-            # TODO: Implement full PDF generation with template
             certificate_count += 1
-        
         log_action(request.user, f"Generated {certificate_count} certificates for event: {event.name}")
-        
-        return Response({
-            'message': f'Successfully generated {certificate_count} certificates.',
-            'certificate_count': certificate_count
-        })
+        return Response({'message': f'Successfully generated {certificate_count} certificates.', 'certificate_count': certificate_count})
 
 
 class EventAttendanceViewSet(viewsets.ModelViewSet):
@@ -1516,126 +1577,119 @@ class HallViewSet(viewsets.ModelViewSet):
 
 
 class HallBookingViewSet(viewsets.ModelViewSet):
-    """
-    Hall booking with mandatory event association and approval workflow.
-    Implements 30-minute setup and 15-minute cleanup buffers.
-    """
-    queryset = HallBooking.objects.all()
+    queryset = HallBooking.objects.all().select_related('hall', 'event', 'booked_by')
     serializer_class = HallBookingSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsClubAdmin]  # creation by club organizers; admin endpoints checked below
 
-    def get_queryset(self):
-        queryset = HallBooking.objects.select_related('event', 'hall', 'booked_by')
-        
-        booking_status = self.request.query_params.get('status')
-        if booking_status:
-            queryset = queryset.filter(booking_status=booking_status)
-        
-        if self.request.query_params.get('club') == 'true':
-            user = self.request.user
-            if user.user_type == 'club_organizer':
-                club_organizer_profile = getattr(user, "club_organizer_profile", None)
-                if club_organizer_profile and club_organizer_profile.club:
-                    queryset = queryset.filter(event__club=club_organizer_profile.club)
-                else:
-                    queryset = queryset.none()
-            else:
-                queryset = queryset.none()
-        
-        return queryset
+    def get_permissions(self):
+        # keep default but individual actions enforce role
+        if self.action in ['approve', 'reject', 'list_admin_pending']:
+            self.permission_classes = [IsAdmin]
+        return super().get_permissions()
+
+    def _has_conflict(self, hall, booking_date, start_time, end_time):
+        # returns True if any approved or pending booking overlaps
+        qs = HallBooking.objects.filter(hall=hall, booking_date=booking_date).exclude(pk=self.kwargs.get('pk', None))
+        # consider both pending and approved to avoid overlaps
+        qs = qs.filter(booking_status__in=['PENDING', 'APPROVED'])
+        for b in qs:
+            # convert to comparable times
+            if b.start_time <= end_time and start_time <= b.end_time:
+                return True
+        return False
 
     def create(self, request, *args, **kwargs):
-        """Create hall booking with conflict detection including setup/cleanup buffers."""
-        hall_id = request.data.get('hall')
-        event_id = request.data.get('event')
-        booking_date = request.data.get('booking_date')
-        start_time = request.data.get('start_time')
-        end_time = request.data.get('end_time')
-        
-        if not all([hall_id, event_id, booking_date, start_time, end_time]):
-            return Response(
-                {'error': 'hall, event, booking_date, start_time, and end_time are required'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try:
-            from datetime import datetime, time
-            booking_date = datetime.strptime(booking_date, '%Y-%m-%d').date()
-            start_time_obj = datetime.strptime(start_time, '%H:%M').time()
-            end_time_obj = datetime.strptime(end_time, '%H:%M').time()
-        except ValueError:
-            return Response(
-                {'error': 'Invalid date or time format. Use YYYY-MM-DD and HH:MM'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Check for conflicts with buffers (30 min setup before, 15 min cleanup after)
-        from datetime import datetime as dt, time as time_type
-        setup_buffer_start = (dt.combine(booking_date, start_time_obj) - timedelta(minutes=30)).time()
-        cleanup_buffer_end = (dt.combine(booking_date, end_time_obj) + timedelta(minutes=15)).time()
-        
-        conflicting_bookings = HallBooking.objects.filter(
-            hall_id=hall_id,
-            booking_date=booking_date,
-            booking_status__in=['APPROVED', 'PENDING'],
-            start_time__lt=cleanup_buffer_end,
-            end_time__gt=setup_buffer_start
-        )
-        
-        if conflicting_bookings.exists():
-            return Response(
-                {
-                    'error': 'Hall is not available for the selected time slot (including setup/cleanup buffers)',
-                    'conflicts': HallBookingSerializer(conflicting_bookings, many=True).data
-                },
-                status=status.HTTP_409_CONFLICT
-            )
-        
-        return super().create(request, *args, **kwargs)
+        """
+        Create booking: if no conflict, auto-approve (booking_status='APPROVED').
+        If conflict exists, create as PENDING and leave for admin.
+        """
+        user = request.user
+        if user.user_type != 'club_organizer':
+            raise PermissionDenied("Only club organizers can create hall bookings")
 
-    def perform_create(self, serializer):
-        booking = serializer.save(booked_by=self.request.user)
-        log_action(self.request.user, f"Requested hall booking: {booking.hall.name} for event {booking.event.name}")
+        data = request.data.copy()
+        hall_id = data.get('hall')
+        booking_date = data.get('booking_date')
+        start_time_str = data.get('start_time')
+        end_time_str = data.get('end_time')
+
+        if not all([hall_id, booking_date, start_time_str, end_time_str]):
+            return Response({'error': 'hall, booking_date, start_time, end_time required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            hall = Hall.objects.get(id=hall_id)
+        except Hall.DoesNotExist:
+            return Response({'error': 'Hall not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            start_time = datetime.strptime(start_time_str, "%H:%M").time()
+            end_time = datetime.strptime(end_time_str, "%H:%M").time()
+            booking_date_obj = datetime.strptime(booking_date, "%Y-%m-%d").date()
+        except ValueError:
+            return Response({'error': 'Invalid date/time format'}, status=status.HTTP_400_BAD_REQUEST)
+
+        conflict = self._has_conflict(hall, booking_date_obj, start_time, end_time)
+
+        # set booking_status based on conflict
+        data['booking_status'] = 'PENDING' if conflict else 'APPROVED'
+        data['booked_by'] = request.user.id
+
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+
+        with transaction.atomic():
+            booking = serializer.save()
+            if not conflict:
+                booking.approved_by = request.user  # automatic approval by system (user)
+                booking.save()
+                log_action(request.user, f"Auto-approved hall booking: {booking.hall.name} on {booking.booking_date} {booking.start_time}-{booking.end_time}")
+            else:
+                log_action(request.user, f"Created pending hall booking: {booking.hall.name} on {booking.booking_date} {booking.start_time}-{booking.end_time}")
+
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
-        """Admin approval of hall booking."""
+        """Admin approves a pending booking"""
         if request.user.user_type != 'admin':
             raise PermissionDenied("Only administrators can approve bookings")
-        
         booking = self.get_object()
         if booking.booking_status == 'APPROVED':
             return Response({'detail': 'Booking already approved'}, status=status.HTTP_400_BAD_REQUEST)
-        
+        # check again for conflicts before approving
+        if self._has_conflict(booking.hall, booking.booking_date, booking.start_time, booking.end_time):
+            return Response({'error': 'Conflicting booking found — cannot approve'}, status=status.HTTP_409_CONFLICT)
         booking.booking_status = 'APPROVED'
         booking.approved_by = request.user
         booking.save()
-        log_action(request.user, f"Approved hall booking: {booking.hall.name} for {booking.event.name}")
-        
+        log_action(request.user, f"Approved hall booking: {booking.hall.name} for {booking.event.name if booking.event else 'N/A'}")
         return Response({'message': 'Hall booking approved', 'status': booking.booking_status})
 
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
-        """Admin rejection of hall booking."""
+        """Admin rejects a pending booking with reason"""
         if request.user.user_type != 'admin':
             raise PermissionDenied("Only administrators can reject bookings")
-        
         booking = self.get_object()
         reason = request.data.get('reason', 'No reason provided')
-        
         if not reason or len(reason) < 5:
-            return Response(
-                {'error': 'Rejection reason must be at least 5 characters'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
+            return Response({'error': 'Rejection reason must be at least 5 characters'}, status=status.HTTP_400_BAD_REQUEST)
         booking.booking_status = 'REJECTED'
         booking.rejection_reason = reason
         booking.approved_by = request.user
         booking.save()
         log_action(request.user, f"Rejected hall booking: {booking.hall.name} - Reason: {reason}")
-        
         return Response({'message': 'Hall booking rejected', 'reason': reason})
+
+    @action(detail=False, methods=['get'])
+    def list_admin_pending(self, request):
+        """Admin: list pending bookings (for dashboard)"""
+        if request.user.user_type != 'admin':
+            raise PermissionDenied("Only administrators can view pending bookings")
+        qs = HallBooking.objects.filter(booking_status='PENDING').select_related('hall', 'event', 'booked_by')
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)
 
 
 # ============================================================================

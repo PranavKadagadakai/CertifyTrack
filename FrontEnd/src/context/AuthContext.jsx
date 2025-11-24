@@ -34,6 +34,15 @@ const AuthProvider = ({ children }) => {
     loadUser();
   }, []);
 
+  const register = async (payload) => {
+    try {
+      await api.post("/auth/register/", payload);
+      return { success: true };
+    } catch (err) {
+      throw err;
+    }
+  };
+
   const login = async (username, password) => {
     try {
       const response = await api.post("/auth/login/", { username, password });
@@ -63,7 +72,7 @@ const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, register, loading }}>
       {children}
     </AuthContext.Provider>
   );
