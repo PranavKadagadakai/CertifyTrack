@@ -41,20 +41,42 @@ class StudentProfileSerializer(serializers.ModelSerializer):
 
     def get_mentor_name(self, obj):
         return obj.mentor.user.get_full_name() if obj.mentor else None
+    
+    def to_internal_value(self, data):
+        """
+        Allow username / first_name / last_name to be passed at root level.
+        """
+        user_fields = ['username', 'first_name', 'last_name']
+
+        data = data.copy()
+
+        user_data = {}
+
+        for f in user_fields:
+            if f in data:
+                value = data.get(f)          # returns the FIRST value as a string
+                user_data[f] = value
+                data.pop(f)
+
+        ret = super().to_internal_value(data)
+
+        if user_data:
+            ret['user'] = user_data
+
+        return ret
 
     def update(self, instance, validated_data):
-        # Nested user update (partial)
-        user_data = validated_data.pop('user', {})
+        # Extract nested user updates from sourced fields
+        user_data = validated_data.pop("user", {})  # comes from source='user.*'
         user = instance.user
-        for attr in ['username', 'first_name', 'last_name']:
-            if attr in user_data:
-                setattr(user, attr, user_data[attr])
+
+        for attr, value in user_data.items():
+            setattr(user, attr, value)
         user.save()
 
-        # Profile fields update (partial-friendly)
+        # Update profile fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-        instance.save()
 
         # Check profile completion
         required_fields = [
@@ -81,20 +103,42 @@ class MentorProfileSerializer(serializers.ModelSerializer):
             'qualifications', 'bio', 'profile_completed', 'profile_completed_at'
         ]
         read_only_fields = ['profile_completed_at']
+        
+    def to_internal_value(self, data):
+        """
+        Allow username / first_name / last_name to be passed at root level.
+        """
+        user_fields = ['username', 'first_name', 'last_name']
+
+        data = data.copy()
+
+        user_data = {}
+
+        for f in user_fields:
+            if f in data:
+                value = data.get(f)          # returns the FIRST value as a string
+                user_data[f] = value
+                data.pop(f)
+
+        ret = super().to_internal_value(data)
+
+        if user_data:
+            ret['user'] = user_data
+
+        return ret
 
     def update(self, instance, validated_data):
-        # Nested user update (partial)
-        user_data = validated_data.pop('user', {})
+        # Extract nested user updates from sourced fields
+        user_data = validated_data.pop("user", {})  # comes from source='user.*'
         user = instance.user
-        for attr in ['username', 'first_name', 'last_name']:
-            if attr in user_data:
-                setattr(user, attr, user_data[attr])
+
+        for attr, value in user_data.items():
+            setattr(user, attr, value)
         user.save()
 
-        # Profile update (partial-friendly)
+        # Update profile fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-        instance.save()
 
         # Check profile completion
         required_fields = [
@@ -120,20 +164,42 @@ class ClubOrganizerProfileSerializer(serializers.ModelSerializer):
             'profile_completed', 'profile_completed_at', 'created_at', 'updated_at'
         ]
         read_only_fields = ['profile_completed_at', 'created_at', 'updated_at']
+        
+    def to_internal_value(self, data):
+        """
+        Allow username / first_name / last_name to be passed at root level.
+        """
+        user_fields = ['username', 'first_name', 'last_name']
+
+        data = data.copy()
+
+        user_data = {}
+
+        for f in user_fields:
+            if f in data:
+                value = data.get(f)          # returns the FIRST value as a string
+                user_data[f] = value
+                data.pop(f)
+
+        ret = super().to_internal_value(data)
+
+        if user_data:
+            ret['user'] = user_data
+
+        return ret
 
     def update(self, instance, validated_data):
-        # Nested user update (partial)
-        user_data = validated_data.pop('user', {})
+        # Extract nested user updates from sourced fields
+        user_data = validated_data.pop("user", {})  # comes from source='user.*'
         user = instance.user
-        for attr in ['username', 'first_name', 'last_name']:
-            if attr in user_data:
-                setattr(user, attr, user_data[attr])
+
+        for attr, value in user_data.items():
+            setattr(user, attr, value)
         user.save()
 
-        # Profile update (partial-friendly)
+        # Update profile fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-        instance.save()
 
         # Check profile completion
         required_fields = [

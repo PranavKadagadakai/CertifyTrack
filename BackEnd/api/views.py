@@ -318,7 +318,7 @@ class ProfileView(generics.RetrieveUpdateAPIView):
             return MentorProfileSerializer
         elif user.user_type == 'club_organizer' and hasattr(user, 'club_organizer_profile'):
             return ClubOrganizerProfileSerializer
-        return None  # fallback, unlikely
+        return UserSerializer  # fallback, unlikely
 
     def get_object(self):
         user = self.request.user

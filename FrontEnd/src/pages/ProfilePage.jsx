@@ -78,8 +78,10 @@ function ProfilePage() {
       // Add all form fields
       Object.keys(formData).forEach((key) => {
         const value = formData[key];
-        if (value !== null && value !== undefined && value !== "") {
-          submitData.append(key, value);
+        if (key !== "profile_photo") {
+          if (value !== null && value !== undefined && value !== "") {
+            submitData.append(key, value);
+          }
         }
       });
 
