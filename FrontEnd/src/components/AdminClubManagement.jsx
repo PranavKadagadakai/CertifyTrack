@@ -288,6 +288,8 @@ const AdminClubManagement = () => {
                   Assign Organizer
                 </label>
                 <select
+                  // value={club.club_head || ""}
+                  defaultValue=""
                   onChange={(e) => {
                     if (e.target.value) {
                       handleAssignOrganizer(club.id, e.target.value);
@@ -299,7 +301,8 @@ const AdminClubManagement = () => {
                   <option value="">Select Organizer</option>
                   {organizers.map((org) => (
                     <option key={org.id} value={org.id}>
-                      {org.first_name} {org.last_name}
+                      {org.user_details?.first_name}
+                      {org.user_details?.last_name}
                     </option>
                   ))}
                 </select>
@@ -311,7 +314,12 @@ const AdminClubManagement = () => {
                     <ul className="text-sm list-disc ml-4">
                       {club.organizers.map((org) => (
                         <li key={org.id}>
-                          {org.user?.first_name} {org.user?.last_name}
+                          {org.user?.first_name ||
+                            org.user_details?.first_name ||
+                            ""}{" "}
+                          {org.user?.last_name ||
+                            org.user_details?.last_name ||
+                            ""}
                         </li>
                       ))}
                     </ul>

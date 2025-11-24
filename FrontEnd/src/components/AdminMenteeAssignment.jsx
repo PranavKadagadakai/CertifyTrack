@@ -146,7 +146,7 @@ const AdminMenteeAssignment = () => {
           Your CSV file should have two columns with the following format:
         </p>
         <pre className="bg-white border p-4 rounded text-sm overflow-x-auto">
-          mentor_id,student_usn 1,USN001 1,USN002 2,USN003
+          mentor_employee_id,student_usn 1,USN001 1,USN002 2,USN003
         </pre>
       </div>
     </div>
