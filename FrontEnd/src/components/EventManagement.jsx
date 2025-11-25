@@ -25,14 +25,27 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
     start_time: "",
     end_time: "",
     max_participants: "",
+    primary_hall: "",
+    secondary_hall: "",
     aicte_category: "",
     points_awarded: 0,
   });
 
+  const [halls, setHalls] = useState([]);
+  const [availableHalls, setAvailableHalls] = useState([]);
+
   useEffect(() => {
     fetchEvents();
     fetchCategories();
+    fetchHalls();
   }, []);
+
+  useEffect(() => {
+    // Update available halls when date/time changes
+    if (formData.event_date && formData.start_time) {
+      fetchAvailableHalls();
+    }
+  }, [formData.event_date, formData.start_time, formData.end_time]);
 
   const fetchEvents = async () => {
     try {
@@ -56,6 +69,29 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
     }
   };
 
+  const fetchHalls = async () => {
+    try {
+      const response = await api.get("/halls/");
+      setHalls(Array.isArray(response.data) ? response.data : []);
+    } catch (err) {
+      console.error("Failed to fetch halls");
+    }
+  };
+
+  const fetchAvailableHalls = async () => {
+    if (!formData.event_date || !formData.start_time) return;
+
+    const endTime = formData.end_time || formData.start_time;
+    try {
+      const response = await api.get(
+        `/halls/available/?date=${formData.event_date}&start_time=${formData.start_time}&end_time=${endTime}`
+      );
+      setAvailableHalls(Array.isArray(response.data) ? response.data : []);
+    } catch (err) {
+      console.error("Failed to fetch available halls");
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       name: "",
@@ -65,6 +101,8 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
       start_time: "",
       end_time: "",
       max_participants: "",
+      primary_hall: "",
+      secondary_hall: "",
       aicte_category: "",
       points_awarded: 0,
     });
@@ -128,6 +166,8 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
       start_time: event.start_time,
       end_time: event.end_time || "",
       max_participants: event.max_participants || "",
+      primary_hall: event.primary_hall || "",
+      secondary_hall: event.secondary_hall || "",
       aicte_category: event.aicte_category || "",
       points_awarded: event.points_awarded || 0,
     });
@@ -154,7 +194,10 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
       setSuccess(`Event status updated to ${newStatus}`);
       fetchEvents();
 
-      if (newStatus === "completed") {
+      if (newStatus === "scheduled") {
+        // Auto-assign hall when scheduled
+        setTimeout(() => fetchEvents(), 1000); // Refresh to see assigned hall
+      } else if (newStatus === "completed") {
         setAttendanceEventId(eventId);
         setShowAttendanceUpload(true);
       }
@@ -299,6 +342,54 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
             />
           </div>
 
+          {/* Hall Selection Section */}
+          <div className="bg-gray-50 p-4 rounded border">
+            <h4 className="font-medium mb-3">Venue Selection</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm mb-1 font-medium">
+                  Primary Hall (Preferred)
+                </label>
+                <select
+                  name="primary_hall"
+                  value={formData.primary_hall}
+                  onChange={handleChange}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="">Select Primary Hall</option>
+                  {availableHalls.map((hall) => (
+                    <option key={hall.id} value={hall.id}>
+                      {hall.name} (Capacity: {hall.capacity})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm mb-1 font-medium">
+                  Secondary Hall (Backup)
+                </label>
+                <select
+                  name="secondary_hall"
+                  value={formData.secondary_hall}
+                  onChange={handleChange}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="">Select Secondary Hall</option>
+                  {availableHalls.map((hall) => (
+                    <option key={hall.id} value={hall.id}>
+                      {hall.name} (Capacity: {hall.capacity})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <p className="text-sm text-gray-500 mt-2">
+              System will automatically assign available halls when event is
+              scheduled.
+            </p>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm mb-1 font-medium">
@@ -366,6 +457,7 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
                   <th className="px-6 py-3 text-left">Name</th>
                   <th className="px-6 py-3 text-left">Date</th>
                   <th className="px-6 py-3 text-left">Time</th>
+                  <th className="px-6 py-3 text-left">Venue</th>
                   <th className="px-6 py-3 text-left">Status</th>
                   <th className="px-6 py-3 text-left">Participants</th>
                   <th className="px-6 py-3 text-left">Actions</th>
@@ -381,6 +473,9 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
                     </td>
                     <td className="px-6 py-3">
                       {event.start_time} - {event.end_time || ""}
+                    </td>
+                    <td className="px-6 py-3">
+                      {event.assigned_hall_name || "Not assigned"}
                     </td>
                     <td className="px-6 py-3">
                       <span className="px-3 py-1 text-xs rounded bg-blue-100 text-blue-800">

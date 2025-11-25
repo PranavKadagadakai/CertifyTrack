@@ -6,23 +6,39 @@ import Notifications from "../components/Notifications";
 
 const ClubDashboard = () => {
   const [bookings, setBookings] = useState([]);
+  const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("events"); // 'events' or 'bookings'
 
+  const fetchData = async () => {
+    try {
+      const [bookingsResponse, eventsResponse] = await Promise.all([
+        api.get("/hall-bookings/?club=true"),
+        api.get("/events/?club=true"),
+      ]);
+      setBookings(bookingsResponse.data);
+      setEvents(eventsResponse.data);
+    } catch (error) {
+      console.error("Failed to fetch data:", error);
+    }
+  };
+
   useEffect(() => {
-    const fetchBookings = async () => {
+    const loadData = async () => {
       try {
-        const bookingsResponse = await api.get("/hall-bookings/?club=true");
-        setBookings(bookingsResponse.data);
-      } catch (error) {
-        console.error("Failed to fetch bookings:", error);
+        await fetchData();
       } finally {
         setLoading(false);
       }
     };
 
-    fetchBookings();
+    loadData();
   }, []);
+
+  // Check if hall booking is handled automatically through events
+  const hasAutomaticHallBookings = events.some(
+    (event) => event.assigned_hall || event.primary_hall || event.secondary_hall
+  );
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
@@ -68,10 +84,12 @@ const ClubDashboard = () => {
           <div className="bg-white rounded-lg shadow-lg p-6">
             <EventManagement
               onEventCreated={(event) => {
-                console.log("Event created:", event);
+                if (event && event.id) {
+                  fetchData();
+                }
               }}
               onEventUpdated={(event) => {
-                console.log("Event updated:", event);
+                fetchData();
               }}
             />
           </div>
@@ -79,19 +97,44 @@ const ClubDashboard = () => {
 
         {/* Bookings Tab */}
         {activeTab === "bookings" && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div
+            className={`grid gap-6 ${
+              hasAutomaticHallBookings
+                ? "grid-cols-1 max-w-4xl mx-auto"
+                : "grid-cols-1 lg:grid-cols-2"
+            }`}
+          >
             {/* Hall Bookings List */}
-            <div className="bg-white p-6 rounded-lg shadow-lg">
+            <div
+              className={`bg-white p-6 rounded-lg shadow-lg ${
+                hasAutomaticHallBookings ? "col-span-full" : ""
+              }`}
+            >
               <h2 className="text-2xl font-semibold mb-4 text-gray-800">
-                Your Hall Bookings
+                {hasAutomaticHallBookings
+                  ? "Hall Booking Status"
+                  : "Your Hall Bookings"}
               </h2>
+
+              {hasAutomaticHallBookings && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    📝 Hall bookings are managed automatically when scheduling
+                    events. Use the Events Management tab to assign halls during
+                    event creation.
+                  </p>
+                </div>
+              )}
+
               {loading ? (
                 <div className="text-center py-8 text-gray-500">
                   Loading bookings...
                 </div>
               ) : bookings.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
-                  No bookings yet. Create your first booking!
+                  {hasAutomaticHallBookings
+                    ? "No hall bookings yet. Assign halls when scheduling events."
+                    : "No bookings yet. Create your first booking!"}
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -101,9 +144,16 @@ const ClubDashboard = () => {
                       className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition"
                     >
                       <div className="flex justify-between items-start mb-2">
-                        <h3 className="font-semibold text-gray-900">
-                          {booking.hall?.name}
-                        </h3>
+                        <div>
+                          <h3 className="font-semibold text-gray-900">
+                            {booking.hall?.name}
+                          </h3>
+                          {booking.event && (
+                            <p className="text-sm text-gray-600">
+                              Event: {booking.event.name}
+                            </p>
+                          )}
+                        </div>
                         <span
                           className={`px-2 py-1 rounded text-xs font-semibold ${
                             booking.booking_status === "APPROVED"
@@ -130,23 +180,31 @@ const ClubDashboard = () => {
                       <p className="text-sm text-gray-600 mt-2">
                         Capacity: {booking.hall?.capacity} seats
                       </p>
+                      {booking.booking_status === "REJECTED" &&
+                        booking.rejection_reason && (
+                          <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                            Reason: {booking.rejection_reason}
+                          </div>
+                        )}
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Hall Booking Form */}
-            <div className="bg-white p-6 rounded-lg shadow-lg">
-              <h2 className="text-2xl font-semibold mb-4 text-gray-800">
-                Create Hall Booking
-              </h2>
-              <HallBookingForm
-                onBookingCreated={(newBooking) => {
-                  setBookings((prev) => [...prev, newBooking]);
-                }}
-              />
-            </div>
+            {/* Manual Hall Booking Form - Only show if no automatic bookings */}
+            {!hasAutomaticHallBookings && (
+              <div className="bg-white p-6 rounded-lg shadow-lg">
+                <h2 className="text-2xl font-semibold mb-4 text-gray-800">
+                  Create Hall Booking
+                </h2>
+                <HallBookingForm
+                  onBookingCreated={(newBooking) => {
+                    setBookings((prev) => [...prev, newBooking]);
+                  }}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>

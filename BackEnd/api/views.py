@@ -1299,6 +1299,66 @@ class EventViewSet(viewsets.ModelViewSet):
         event = serializer.save(club=club_organizer_profile.club, created_by=user)
         log_action(user, f"Created Event: {event.name} (AICTE: {getattr(event.aicte_category,'name','None')}, Points: {event.points_awarded})")
 
+    def perform_update(self, serializer):
+        event = serializer.save()
+        user = self.request.user
+
+        # Check if status was changed to 'scheduled' - automatically assign hall
+        if event.status == 'scheduled' and hasattr(event, '_original_status') and event._original_status != 'scheduled':
+            self._assign_hall_to_event(event)
+
+        log_action(user, f"Updated Event: {event.name}")
+
+    def _assign_hall_to_event(self, event):
+        """
+        Automatically assign hall to event based on preferences.
+        Creates notifications if assignment fails.
+        """
+        # Skip if already assigned
+        if event.assigned_hall:
+            return
+
+        # Try to assign hall using event's assign_hall method
+        hall_assigned = event.assign_hall()
+        event.save()
+
+        if hall_assigned:
+            # Create hall booking for the assigned hall
+            try:
+                HallBooking.objects.create(
+                    hall=event.assigned_hall,
+                    event=event,
+                    booking_date=event.event_date,
+                    start_time=event.start_time,
+                    end_time=event.end_time or event.start_time,
+                    booking_status='APPROVED',
+                    booked_by=event.created_by,
+                    approved_by=event.created_by  # Auto-approved since preferences checked
+                )
+                log_action(event.created_by, f"Auto-assigned hall {event.assigned_hall.name} to event {event.name}")
+            except Exception as e:
+                # Log error but don't prevent event creation
+                print(f"Error creating hall booking: {e}")
+        else:
+            # No hall available - create notification for organizer
+            organizer_profile = getattr(event.club, 'organizers', None)
+            if organizer_profile and organizer_profile.exists():
+                organizer = organizer_profile.first().user
+                Notification.objects.create(
+                    user=organizer,
+                    title="Hall Assignment Failed",
+                    message=f"No halls available for event '{event.name}' on {event.event_date} from {event.start_time}. Please reschedule or contact admin."
+                )
+            log_action(event.created_by, f"Failed to assign hall to event {event.name} - no availability")
+
+
+    def retrieve(self, request, *args, **kwargs):
+        """Override retrieve to set _original_status for comparison in update"""
+        instance = self.get_object()
+        instance._original_status = instance.status
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
     @action(detail=True, methods=['get'])
     def participants(self, request, pk=None):
         """Return participant list (id, usn, full_name) for preview prior to attendance upload"""
@@ -1534,27 +1594,47 @@ class HallViewSet(viewsets.ModelViewSet):
         Get available halls for a specific date and time range.
         Query params:
         - date: (YYYY-MM-DD) required
-        - start_time: (HH:MM) required
-        - end_time: (HH:MM) required
+        - start_time: (HH:MM or HH:MM:SS) required
+        - end_time: (HH:MM or HH:MM:SS) required
         """
         date_str = request.query_params.get('date')
         start_time_str = request.query_params.get('start_time')
         end_time_str = request.query_params.get('end_time')
-        
+
         if not all([date_str, start_time_str, end_time_str]):
             return Response(
                 {'error': 'date, start_time, and end_time query parameters are required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         try:
             from datetime import datetime
             booking_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-            start_time = datetime.strptime(start_time_str, '%H:%M').time()
-            end_time = datetime.strptime(end_time_str, '%H:%M').time()
-        except ValueError:
+
+            # Handle both HH:MM and HH:MM:SS formats
+            for time_str in [start_time_str, end_time_str]:
+                if ':' not in time_str or time_str.count(':') > 2:
+                    raise ValueError("Invalid time format")
+
+            try:
+                start_time = datetime.strptime(start_time_str, '%H:%M:%S').time()
+            except ValueError:
+                try:
+                    start_time = datetime.strptime(start_time_str, '%H:%M').time()
+                except ValueError:
+                    raise ValueError("Invalid start_time format")
+
+            try:
+                end_time = datetime.strptime(end_time_str, '%H:%M:%S').time()
+            except ValueError:
+                try:
+                    end_time = datetime.strptime(end_time_str, '%H:%M').time()
+                except ValueError:
+                    raise ValueError("Invalid end_time format")
+
+        except ValueError as e:
             return Response(
-                {'error': 'Invalid date or time format. Use YYYY-MM-DD and HH:MM'},
+                {'error': f'Invalid date or time format: {str(e)}. Use YYYY-MM-DD and HH:MM or HH:MM:SS'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         

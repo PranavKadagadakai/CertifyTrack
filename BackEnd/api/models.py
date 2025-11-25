@@ -231,6 +231,15 @@ class Event(models.Model):
     aicte_category = models.ForeignKey('AICTECategory', on_delete=models.SET_NULL, null=True, blank=True, related_name='events')
     points_awarded = models.IntegerField(default=0, help_text="Points awarded per attendance")
     
+    # Hall Assignment Fields
+    primary_hall = models.ForeignKey(Hall, on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='primary_events', help_text="Preferred hall for the event")
+    secondary_hall = models.ForeignKey(Hall, on_delete=models.SET_NULL, null=True, blank=True,
+                                     related_name='secondary_events', help_text="Backup hall for the event")
+    assigned_hall = models.ForeignKey(Hall, on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name='assigned_events', help_text="Currently assigned hall")
+    hall_assigned_at = models.DateTimeField(null=True, blank=True, help_text="When hall was last assigned")
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
@@ -244,6 +253,42 @@ class Event(models.Model):
     def clean(self):
         if self.end_date and self.end_date < self.event_date:
             raise ValidationError("End date must be after or equal to start date")
+
+    def assign_hall(self):
+        """
+        Assign a hall to this event based on availability and preferences.
+        Returns True if a hall was assigned, False if no hall available.
+        """
+        from django.utils.timezone import now
+
+        # Check if primary hall is available
+        if self.primary_hall and self._is_hall_available(self.primary_hall):
+            self.assigned_hall = self.primary_hall
+            self.hall_assigned_at = now()
+            return True
+
+        # Check if secondary hall is available
+        if self.secondary_hall and self._is_hall_available(self.secondary_hall):
+            self.assigned_hall = self.secondary_hall
+            self.hall_assigned_at = now()
+            return True
+
+        # No halls available
+        self.assigned_hall = None
+        self.hall_assigned_at = now()
+        return False
+
+    def _is_hall_available(self, hall):
+        """
+        Check if a hall is available for this event's date and time.
+        """
+        return not HallBooking.objects.filter(
+            hall=hall,
+            booking_date=self.event_date,
+            booking_status__in=['APPROVED', 'PENDING'],
+            start_time__lt=self.end_time or self.start_time,
+            end_time__gt=self.start_time
+        ).exists()
 
 
 class EventAttendance(models.Model):

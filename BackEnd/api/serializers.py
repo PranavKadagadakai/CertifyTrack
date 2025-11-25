@@ -406,17 +406,23 @@ class EventSerializer(serializers.ModelSerializer):
     registrations = EventRegistrationSerializer(many=True, read_only=True)
     created_by_username = serializers.CharField(source='created_by.username', read_only=True)
     aicte_category_name = serializers.CharField(source='aicte_category.name', read_only=True, allow_null=True)
+    primary_hall_name = serializers.CharField(source='primary_hall.name', read_only=True, allow_null=True)
+    secondary_hall_name = serializers.CharField(source='secondary_hall.name', read_only=True, allow_null=True)
+    assigned_hall_name = serializers.CharField(source='assigned_hall.name', read_only=True, allow_null=True)
     club = serializers.PrimaryKeyRelatedField(read_only=True)
     
     class Meta:
         model = Event
         fields = [
-            'id', 'club', 'name', 'description', 'event_date', 'end_date', 
-            'start_time', 'end_time', 'max_participants', 'status', 
+            'id', 'club', 'name', 'description', 'event_date', 'end_date',
+            'start_time', 'end_time', 'max_participants', 'status',
             'aicte_category', 'aicte_category_name', 'points_awarded',
+            'primary_hall', 'primary_hall_name', 'secondary_hall', 'secondary_hall_name',
+            'assigned_hall', 'assigned_hall_name', 'hall_assigned_at',
             'created_at', 'updated_at', 'created_by', 'created_by_username',
             'registrations'
         ]
+        read_only_fields = ['created_at', 'updated_at', 'assigned_hall', 'hall_assigned_at']
     
     def validate(self, data):
         if data.get('end_date') and data.get('end_date') < data.get('event_date'):
@@ -528,4 +534,3 @@ class AuditLogSerializer(serializers.ModelSerializer):
         model = AuditLog
         fields = ['id', 'user', 'user_username', 'action', 'timestamp']
         read_only_fields = ['timestamp']
-
