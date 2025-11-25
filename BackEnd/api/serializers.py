@@ -9,7 +9,7 @@ from .models import (
     User, Student, Mentor, ClubOrganizer, Club, Event, EventRegistration, Certificate,
     Hall, HallBooking, AICTECategory, AICTEPointTransaction,
     Notification, AuditLog, ClubMember, ClubRole, EventAttendance,
-    CertificateTemplate
+    CertificateTemplate, UserNotificationPreferences
 )
 from .email_utils import send_verification_email, send_password_reset_email
 
@@ -527,9 +527,23 @@ class NotificationSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at']
 
 
+class UserNotificationPreferencesSerializer(serializers.ModelSerializer):
+    """Serializer for user notification preferences"""
+    class Meta:
+        model = UserNotificationPreferences
+        fields = [
+            'id', 'user', 'email_enabled', 'email_event_registrations',
+            'email_event_reminders', 'email_event_cancellations',
+            'email_certificate_generation', 'email_aicte_points',
+            'email_hall_bookings', 'in_app_enabled',
+            'in_app_event_notifications', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
 class AuditLogSerializer(serializers.ModelSerializer):
     user_username = serializers.CharField(source='user.username', read_only=True)
-    
+
     class Meta:
         model = AuditLog
         fields = ['id', 'user', 'user_username', 'action', 'timestamp']

@@ -427,12 +427,67 @@ class AuditLog(models.Model):
 # NOTIFICATION MANAGEMENT MODELS
 # ============================================
 class Notification(models.Model):
+    NOTIFICATION_TYPES = (
+        ('info', 'Information'),
+        ('success', 'Success'),
+        ('warning', 'Warning'),
+        ('error', 'Error'),
+        ('event_registration', 'Event Registration'),
+        ('event_reminder', 'Event Reminder'),
+        ('event_cancellation', 'Event Cancellation'),
+        ('certificate_generated', 'Certificate Generated'),
+        ('points_approved', 'AICTE Points Approved'),
+        ('points_rejected', 'AICTE Points Rejected'),
+        ('hall_booking_approved', 'Hall Booking Approved'),
+        ('hall_booking_rejected', 'Hall Booking Rejected'),
+    )
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    notification_type = models.CharField(max_length=30, choices=NOTIFICATION_TYPES, default='info')
     title = models.CharField(max_length=255)
     message = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(blank=True, null=True)
     is_read = models.BooleanField(default=False)
+    is_email_sent = models.BooleanField(default=False)  # Track email delivery
+    email_sent_at = models.DateTimeField(blank=True, null=True)
+
+    # Optional related objects for notification context
+    event = models.ForeignKey('Event', on_delete=models.SET_NULL, null=True, blank=True)
+    aiCTE_transaction = models.ForeignKey('AICTEPointTransaction', on_delete=models.SET_NULL, null=True, blank=True)
+    hall_booking = models.ForeignKey('HallBooking', on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', '-created_at']),
+            models.Index(fields=['notification_type']),
+            models.Index(fields=['is_read']),
+        ]
 
     def __str__(self):
         return f"Notification for {self.user.username}: {self.title}"
+
+
+class UserNotificationPreferences(models.Model):
+    """User preferences for notification types and delivery methods"""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='notification_preferences')
+
+    # Email preferences (can be disabled except mandatory ones)
+    email_enabled = models.BooleanField(default=True)
+    email_event_registrations = models.BooleanField(default=True)
+    email_event_reminders = models.BooleanField(default=True)
+    email_event_cancellations = models.BooleanField(default=True)
+    email_certificate_generation = models.BooleanField(default=True)
+    email_aicte_points = models.BooleanField(default=True)
+    email_hall_bookings = models.BooleanField(default=True)
+
+    # In-app notification preferences
+    in_app_enabled = models.BooleanField(default=True)
+    in_app_event_notifications = models.BooleanField(default=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Notification preferences for {self.user.username}"

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import api from "../api";
 import EventCard from "../components/EventCard";
+import Notifications from "../components/Notifications";
 
 const StudentDashboard = () => {
   const [stats, setStats] = useState(null);
@@ -67,6 +68,11 @@ const StudentDashboard = () => {
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
       <h1 className="text-3xl font-bold mb-6">Student Dashboard</h1>
+
+      {/* Notifications */}
+      <div className="mb-6">
+        <Notifications />
+      </div>
 
       {error && (
         <div className="mb-4 p-4 bg-red-100 text-red-700 rounded">{error}</div>
