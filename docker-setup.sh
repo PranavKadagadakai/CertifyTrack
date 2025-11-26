@@ -39,7 +39,7 @@ check_prerequisites() {
     fi
     print_success "Docker is installed"
     
-    if ! command -v docker compose &> /dev/null; then
+    if ! command -v docker compose &> /dev/null && ! command -v docker &> /dev/null | head -1 | grep -q compose; then
         print_error "Docker Compose is not installed"
         exit 1
     fi
@@ -115,8 +115,6 @@ show_urls() {
     echo "  ${BLUE}Frontend:${NC}    http://localhost:3000"
     echo "  ${BLUE}API:${NC}         http://localhost:8000/api/"
     echo "  ${BLUE}Admin Panel:${NC}  http://localhost:8000/admin/"
-    echo "  ${BLUE}Database:${NC}     localhost:5432"
-    echo "  ${BLUE}Redis:${NC}        localhost:6379"
     echo ""
 }
 

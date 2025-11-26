@@ -9,7 +9,9 @@ WORKDIR /app
 # Install dependencies
 COPY package.json pnpm-lock.yaml ./
 
-RUN npm install -g pnpm && pnpm install --frozen-lockfile
+RUN apk add --no-cache build-base && \
+    npm install -g pnpm@^8.15.0 && \
+    pnpm install --frozen-lockfile
 
 # Copy source
 COPY . .
