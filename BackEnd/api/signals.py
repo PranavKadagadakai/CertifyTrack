@@ -3,7 +3,7 @@ from django.dispatch import receiver
 from django.core.exceptions import ValidationError
 import hashlib
 
-from .models import Certificate, AICTEPointTransaction, Notification, AuditLog
+from .models import User, Certificate, AICTEPointTransaction, Notification, AuditLog
 
 
 @receiver(pre_save, sender=Certificate)
@@ -61,3 +61,12 @@ def notify_on_transaction_status_change(sender, instance, created, **kwargs):
 
     Notification.objects.create(user=user, title=title, message=message)
     AuditLog.objects.create(user=user, action=f"AICTE transaction {instance.id} status {status}")
+
+
+@receiver(post_save, sender=User)
+def set_admin_user_type(sender, instance, created, **kwargs):
+    """
+    Automatically set user_type to 'admin' for superusers.
+    """
+    if instance.is_superuser and instance.user_type != 'admin':
+        User.objects.filter(pk=instance.pk).update(user_type='admin')
