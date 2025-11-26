@@ -40,8 +40,8 @@ pre_deployment_checks() {
     print_success "Docker is installed"
     
     # Check Docker Compose
-    if ! command -v docker-compose &> /dev/null; then
-        print_error "Docker Compose is not installed"
+    if ! docker compose version &> /dev/null; then
+        print_error "Docker Compose is not available"
         exit 1
     fi
     print_success "Docker Compose is installed"
@@ -164,7 +164,7 @@ mkdir -p "$BACKUP_DIR"
 
 # Backup database
 cd /opt/certifytrack
-docker-compose -f docker-compose.prod.yml exec -T postgres pg_dump -U certifytrack_prod_user certifytrack_prod | gzip > "$BACKUP_FILE"
+docker-compose -f docker-compose.prod.yml exec -T postgres pg_dump -U $DB_USER $DB_NAME | gzip > "$BACKUP_FILE"
 
 # Keep only last 30 days of backups
 find "$BACKUP_DIR" -name "database_*.sql.gz" -mtime +30 -delete
