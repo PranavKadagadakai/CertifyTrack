@@ -1,27 +1,41 @@
 # CertifyTrack Frontend
 
-React + Vite frontend for CertifyTrack platform - an academic event management and certification system.
+React 19.1 + Vite frontend for CertifyTrack platform - a comprehensive academic event management and certification system with AICTE activity point tracking.
 
-## Quick Start
+## Overview
 
-### Prerequisites
+The frontend provides a modern, responsive web interface built with React 19, Vite, and Tailwind CSS. It features role-based dashboards, real-time notifications, intelligent hall booking, and comprehensive event management capabilities.
 
-- Node.js 16+ (recommend 18+ LTS)
-- npm, yarn, or pnpm
+## Tech Stack
+
+- **Framework**: React 19.1 with functional components and hooks
+- **Build Tool**: Vite 7.1 for fast development and optimized builds
+- **Styling**: Tailwind CSS 4.1 with responsive design
+- **HTTP Client**: Axios 1.12 for API requests
+- **Routing**: React Router 7.9 for client-side navigation
+- **State Management**: React Context API for authentication
+- **Icons**: React Icons for consistent iconography
+- **Development**: pnpm for package management
+
+## Prerequisites
+
+- Node.js 18+ (recommended)
+- pnpm 8+ (npm/yarn are alternatives)
 - Git
 
-### Installation
+## Quick Installation
 
 ```bash
 # Navigate to frontend directory
 cd CertifyTrack/FrontEnd
 
 # Install dependencies
-pnpm install  # or npm install / yarn install
+pnpm install
 
 # Create environment configuration
 cat > .env << EOF
 VITE_API_BASE_URL=http://localhost:8000/api
+VITE_DEBUG=false
 EOF
 
 # Start development server
@@ -30,490 +44,371 @@ pnpm dev
 # Application will be available at http://localhost:5173
 ```
 
----
-
 ## Project Structure
 
 ```
 src/
-├── main.jsx                    # React entry point
-├── App.jsx                     # Main app component
-├── App.css                     # Global styles
-├── index.css                   # Global CSS
-├── api.js                      # Axios API client
+├── main.jsx                    # React 19 entry point with StrictMode
+├── App.jsx                     # Main app with routing and layouts
+├── index.css                   # Tailwind base styles and globals
+├── api.js                      # Axios client with interceptors
 │
-├── components/                 # Reusable components
-│   ├── EventManagement.jsx     # Event CRUD operations
-│   ├── HallBookingForm.jsx     # Hall booking form
-│   ├── AdminUserManagement.jsx # Admin user management
-│   ├── AdminClubManagement.jsx # Admin club management
-│   ├── AdminMenteeAssignment.jsx # Mentor-mentee assignment
-│   ├── AdminAICTEConfig.jsx    # AICTE configuration
-│   ├── AdminReporting.jsx      # Admin reporting
-│   ├── Navbar.jsx              # Navigation bar
-│   ├── Notifications.jsx       # Notification center
-│   ├── ErrorBoundary.jsx       # Error boundary wrapper
-│   ├── EventCard.jsx           # Event card component
-│   └── Reports.jsx             # Reports component
+├── components/                 # Reusable UI components
+│   ├── EventManagement.jsx     # Complete event CRUD with lifecycle management
+│   ├── HallBookingForm.jsx     # Smart hall booking with conflict detection
+│   ├── AdminUserManagement.jsx # Bulk user creation and management
+│   ├── AdminClubManagement.jsx # Club creation and organizer assignment
+│   ├── AdminMenteeAssignment.jsx # Mentor-student relationships
+│   ├── AdminAICTEConfig.jsx    # AICTE category configuration
+│   ├── AdminReporting.jsx      # Analytics and reporting dashboard
+│   ├── AdminHallBookings.jsx   # Admin hall booking approval system
+│   ├── EventAttendanceForm.jsx # CSV/Excel attendance upload
+│   ├── Navbar.jsx              # Role-based navigation
+│   ├── Notifications.jsx       # Real-time notification center
+│   ├── ErrorBoundary.jsx       # Error handling component
+│   ├── EventCard.jsx           # Event display card
+│   └── Reports.jsx             # Report generation interface
 │
-├── pages/                      # Page components
-│   ├── LandingPage.jsx         # Home page
-│   ├── LoginPage.jsx           # Login page
-│   ├── SignupPage.jsx          # Registration page
-│   ├── ProfilePage.jsx         # User profile
-│   ├── StudentDashboard.jsx    # Student dashboard
-│   ├── ClubDashboard.jsx       # Club organizer dashboard
-│   ├── MentorDashboard.jsx     # Mentor dashboard
-│   ├── AdminDashboard.jsx      # Admin dashboard
+├── pages/                      # Page-level components
+│   ├── LandingPage.jsx         # Welcome page with features overview
+│   ├── LoginPage.jsx           # JWT-based authentication
+│   ├── SignupPage.jsx          # Multi-role registration
+│   ├── ProfilePage.jsx         # Role-specific profile management
+│   ├── StudentDashboard.jsx    # Student event registration
+│   ├── ClubDashboard.jsx       # Club organizer management (tabbed)
+│   ├── MentorDashboard.jsx     # Mentor approval workflows
+│   ├── AdminDashboard.jsx      # Admin control center (tabbed)
 │   ├── EmailVerificationPage.jsx # Email verification
-│   ├── ForgotPasswordPage.jsx  # Password reset
-│   ├── AssignMentees.jsx       # Mentee assignment
-│   └── ...
+│   ├── ForgotPasswordPage.jsx  # OTP-based password reset
+│   ├── NotificationsPage.jsx   # Full notification history
+│   └── AssignMentees.jsx       # Bulk mentee assignment
 │
-├── context/                    # React Context
-│   └── AuthContext.jsx         # Authentication context
+├── context/
+│   └── AuthContext.jsx         # Global authentication state
 │
-├── assets/                     # Images, icons, etc.
-│
-└── styles/                     # Component-specific styles
+└── assets/
+    ├── bell-exclamation.svg    # Notification icon
+    └── bell.svg               # Bell icon
 ```
-
----
 
 ## Available Scripts
 
 ### Development
 
 ```bash
-# Start development server with HMR
-pnpm dev
+# Start dev server with hot module replacement
+pnpm dev              # http://localhost:5173
 
 # Build for production
-pnpm build
+pnpm build           # Creates optimized bundle in dist/
 
-# Preview production build locally
-pnpm preview
+# Preview production build
+pnpm preview         # Test production build locally
 
-# Run linter
+# Lint code with ESLint
 pnpm lint
 
-# Fix linting issues
+# Auto-fix linting issues
 pnpm lint --fix
 ```
 
-### Environment Configuration
+## Environment Configuration
 
-Create `.env` file in project root:
+Create `.env` file in the project root:
 
 ```env
-# API Configuration
+# Required
 VITE_API_BASE_URL=http://localhost:8000/api
 
-# App Configuration (optional)
+# Optional configuration
 VITE_APP_NAME=CertifyTrack
 VITE_APP_VERSION=2.1.0
 VITE_DEBUG=false
 ```
 
-For production:
+For production deployment:
 
 ```env
-VITE_API_BASE_URL=https://api.yourdomain.com/api
+VITE_API_BASE_URL=https://api.certifytrack.com/api
 VITE_DEBUG=false
 ```
 
----
+## Key Components
 
-## Components Guide
+### Dashboard System
+
+The application features tabbed dashboards tailored to each user role:
+
+#### Admin Dashboard (`/admin-dashboard`)
+
+- **Overview Tab**: System statistics and quick metrics
+- **User Management**: Bulk user creation, account management
+- **Club Management**: Club creation, organizer assignment
+- **Mentee Assignment**: Bulk mentor-student relationships
+- **AICTE Config**: Point categories and rules
+- **Hall Bookings**: Admin approval for booking conflicts
+- **Reports**: Comprehensive system analytics
+
+#### Club Dashboard (`/club-dashboard`)
+
+- **Events Tab**: Full CRUD operations with lifecycle management
+- **Hall Bookings**: Smart booking with real-time availability
+- **Reports**: Club-specific analytics and attendance data
+
+#### Student Dashboard (`/student-dashboard`)
+
+- **Events**: Browse and register for scheduled events
+- **Certificates**: Download earned certificates
+- **Profile**: Update personal and academic information
+
+#### Mentor Dashboard (`/mentor-dashboard`)
+
+- **Approvals**: Review and approve AICTE point transactions
+- **Mentees**: View assigned students and their activities
 
 ### EventManagement Component
 
-Full event CRUD for club organizers with status management.
+Comprehensive event lifecycle management for club organizers.
+
+**Key Features:**
+
+- Event creation with AICTE category selection
+- Hall preference assignment (primary/secondary)
+- Status transitions (Draft → Scheduled → Ongoing → Completed)
+- Automated hall assignment on scheduling
+- Attendance upload via CSV/Excel
+- Certificate generation for attendees
+
+**Usage:**
 
 ```jsx
-import EventManagement from "../components/EventManagement";
-
-function ClubDashboard() {
-  return (
-    <EventManagement
-      onEventCreated={(event) => console.log("Event created:", event)}
-      onEventUpdated={(event) => console.log("Event updated:", event)}
-    />
-  );
-}
+<EventManagement onEventCreated={handleEventCreation} />
 ```
-
-**Features:**
-
-- Create new events
-- Edit existing events
-- Delete draft events
-- Update event status (draft → scheduled → ongoing → completed)
-- View event registrations
-- Real-time success/error notifications
 
 ### HallBookingForm Component
 
-Smart hall booking with real-time availability checking.
+Intelligent hall booking with conflict prevention.
+
+**Key Features:**
+
+- Real-time availability checking
+- Dynamic hall filtering based on date/time
+- Conflict detection and prevention
+- Auto-approval for non-conflicting bookings
+- Admin approval workflow for conflicts
+
+**Usage:**
 
 ```jsx
-import HallBookingForm from "../components/HallBookingForm";
-
-function ClubDashboard() {
-  return (
-    <HallBookingForm
-      onBookingCreated={(booking) => console.log("Booking created:", booking)}
-    />
-  );
-}
+<HallBookingForm onBookingCreated={handleBooking} />
 ```
 
-**Features:**
+### AdminUserManagement Component
 
-- Dynamic hall availability based on date/time
-- Conflict prevention
-- Real-time availability feedback
-- Hall capacity and location display
-- Error handling for conflicts
+Bulk user creation and account management interface.
 
-### Navbar Component
+**Key Features:**
 
-Navigation and user menu.
-
-```jsx
-import Navbar from "../components/Navbar";
-
-function App() {
-  return (
-    <>
-      <Navbar />
-      {/* Page content */}
-    </>
-  );
-}
-```
-
-**Features:**
-
-- Navigation links by user role
-- User profile menu
-- Logout functionality
-- Responsive design
-
-### ErrorBoundary Component
-
-Error handling wrapper for components.
-
-```jsx
-import ErrorBoundary from "../components/ErrorBoundary";
-
-function App() {
-  return (
-    <ErrorBoundary>
-      <YourComponent />
-    </ErrorBoundary>
-  );
-}
-```
-
----
+- CSV upload for bulk user creation
+- Role-specific profile generation
+- Account status management (enable/disable/unlock)
+- Password reset capabilities
+- Email verification status tracking
 
 ## API Integration
 
-### Using the API Client
+### Axios Client Setup
 
-```jsx
+```javascript
 import api from "../api";
 
-// GET request
-const response = await api.get("/events/");
-
-// POST request
-const response = await api.post("/events/", {
-  name: "Event Name",
-  event_date: "2025-12-01",
-  start_time: "10:00",
-});
-
-// PATCH request
-const response = await api.patch(`/events/${id}/`, {
-  status: "scheduled",
-});
-
-// DELETE request
-await api.delete(`/events/${id}/`);
-
-// With query parameters
-const response = await api.get("/events/", {
-  params: { club: true },
-});
+// All requests include JWT authentication headers
+const events = await api.get("/events/");
+const newEvent = await api.post("/events/", eventData);
 ```
 
 ### Error Handling
 
-```jsx
+```javascript
 try {
   const response = await api.get("/events/");
   setEvents(response.data);
 } catch (error) {
-  const message = error.response?.data?.detail || "An error occurred";
+  const message =
+    error.response?.data?.detail ||
+    error.response?.data?.error ||
+    "Network error occurred";
   setError(message);
 }
 ```
 
-### Authentication
+### Authentication Context
 
 ```jsx
 import { useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
 
 function MyComponent() {
-  const { user, token, login, logout } = useContext(AuthContext);
+  const {
+    user, // Current user object
+    token, // JWT access token
+    isAuthenticated,
+    login, // (credentials) => Promise
+    logout, // () => void
+    isAdmin, // Boolean helpers
+    isMentor,
+    isClubOrganizer,
+    isStudent,
+  } = useContext(AuthContext);
 
-  if (!user) {
-    return <div>Please login</div>;
-  }
-
-  return <div>Welcome, {user.username}</div>;
+  return <div>Welcome, {user?.username}!</div>;
 }
 ```
-
----
 
 ## Styling with Tailwind CSS
 
-The project uses Tailwind CSS for styling. Common utilities:
+The application uses Tailwind CSS v4 with a custom design system.
+
+### Common Patterns
 
 ```jsx
-// Spacing
-<div className="p-4 m-2">Padding and margin</div>
+// Layout grids
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
-// Colors
-<div className="bg-blue-500 text-white">Blue background</div>
+// Status badges
+<span className="px-3 py-1 text-xs rounded bg-green-100 text-green-800">
 
-// Responsive
-<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-  Responsive grid
-</div>
+// Form styling
+<input className="w-full px-4 py-2 border border-gray-300 rounded-lg
+                   focus:ring-2 focus:ring-blue-500 focus:border-transparent">
 
-// Flexbox
-<div className="flex justify-between items-center">
-  Flex layout
-</div>
-
-// Forms
-<input className="px-4 py-2 border border-gray-300 rounded-lg" />
-<button className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
-  Click me
-</button>
+// Button variants
+<button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg
+                   transition-colors duration-200 disabled:opacity-50">
 ```
 
-See [Tailwind CSS Documentation](https://tailwindcss.com/docs) for complete reference.
+### Responsive Design
 
----
+All components are fully responsive with mobile-first approach:
+
+- Mobile: Single column layout
+- Tablet: 2-column grids where appropriate
+- Desktop: Multi-column layouts with sidebar navigation
 
 ## State Management
-
-### AuthContext
-
-Manages authentication state globally.
-
-```jsx
-import { useContext } from "react";
-import { AuthContext } from "../context/AuthContext";
-
-function MyComponent() {
-  const { user, token, isAuthenticated, login, logout, isAdmin } =
-    useContext(AuthContext);
-
-  return (
-    <>
-      {isAuthenticated ? (
-        <>
-          <p>Welcome, {user.username}</p>
-          <button onClick={logout}>Logout</button>
-        </>
-      ) : (
-        <p>Please login</p>
-      )}
-    </>
-  );
-}
-```
 
 ### Local Component State
 
 ```jsx
-import { useState, useEffect } from "react";
-
 function EventList() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     fetchEvents();
   }, []);
 
   const fetchEvents = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
       const response = await api.get("/events/");
       setEvents(response.data);
     } catch (err) {
-      setError(err.message);
+      setError("Failed to load events");
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error}</div>;
+  if (loading) return <div className="text-center py-8">Loading events...</div>;
+  if (error) return <div className="text-red-600 p-4 rounded">{error}</div>;
 
-  return (
-    <div>
-      {events.map((e) => (
-        <div key={e.id}>{e.name}</div>
-      ))}
-    </div>
-  );
+  return events.map((event) => <EventCard key={event.id} event={event} />);
 }
 ```
 
----
+### Global Authentication State
 
-## React Router
-
-The application uses React Router for navigation.
+The `AuthContext` provides authentication state throughout the application:
 
 ```jsx
-import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
-
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/dashboard" element={<StudentDashboard />} />
-        <Route path="/404" element={<NotFound />} />
-      </Routes>
-    </Router>
+    <AuthContext.Provider
+      value={{
+        user: currentUser,
+        token: accessToken,
+        isAuthenticated: !!token,
+        // ... other auth methods
+      }}
+    >
+      <AppRoutes />
+    </AuthContext.Provider>
   );
 }
 ```
 
----
+## File Upload Handling
 
-## Form Handling
-
-Example of a controlled form component:
+### CSV Upload for Attendance
 
 ```jsx
-import { useState } from "react";
-import api from "../api";
+function AttendanceUpload({ eventId }) {
+  const [file, setFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
 
-function EventForm() {
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    event_date: "",
-    start_time: "",
-  });
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const handleUpload = async () => {
+    const formData = new FormData();
+    formData.append("file", file);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-
+    setUploading(true);
     try {
-      const response = await api.post("/events/", formData);
-      console.log("Event created:", response.data);
-      // Reset form or redirect
-    } catch (err) {
-      setError(err.response?.data?.detail || "An error occurred");
+      const response = await api.post(
+        `/events/${eventId}/upload-attendance/`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+      console.log("Upload successful:", response.data);
+    } catch (error) {
+      console.error("Upload failed:", error);
     } finally {
-      setLoading(false);
+      setUploading(false);
     }
   };
-
-  return (
-    <form onSubmit={handleSubmit}>
-      {error && <div className="text-red-600">{error}</div>}
-
-      <input
-        type="text"
-        name="name"
-        value={formData.name}
-        onChange={handleChange}
-        placeholder="Event Name"
-        required
-      />
-
-      <button type="submit" disabled={loading}>
-        {loading ? "Creating..." : "Create Event"}
-      </button>
-    </form>
-  );
 }
 ```
 
----
+### Supported File Formats
 
-## Performance Optimization
-
-### Code Splitting
-
-```jsx
-import { lazy, Suspense } from "react";
-
-const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
-
-function App() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <AdminDashboard />
-    </Suspense>
-  );
-}
-```
-
-### Memoization
-
-```jsx
-import { memo } from "react";
-
-const EventCard = memo(function EventCard({ event }) {
-  return <div>{event.name}</div>;
-});
-
-export default EventCard;
-```
-
----
+- **CSV**: Standard comma-separated values
+- **Excel**: .xlsx and .xls formats for attendance data
+- **Images**: Profile photos, club logos (PNG, JPG, GIF)
 
 ## Build & Deployment
 
-### Build for Production
+### Production Build
 
 ```bash
-# Build the project
+# Create optimized production bundle
 pnpm build
 
-# Output goes to dist/ folder
+# This creates the dist/ directory with:
+# - index.html
+# - assets/ (JS, CSS, images)
+# - Optimized chunks with hashing
 ```
 
-### Deploy to Vercel
+### Environment-Specific Builds
+
+The build process uses Vite's environment variable handling:
+
+- Development: Hot module replacement, source maps
+- Production: Minified assets, no source maps
+
+### Deployment Options
+
+#### Vercel (Frontend + API)
 
 ```bash
 # Install Vercel CLI
@@ -522,95 +417,180 @@ npm install -g vercel
 # Deploy
 vercel
 
-# For production
+# For production domain
 vercel --prod
 ```
 
-### Deploy to Netlify
+#### Netlify
 
 ```bash
 # Install Netlify CLI
 npm install -g netlify-cli
 
-# Deploy
+# Deploy static files
 netlify deploy --prod --dir=dist
 ```
 
----
+#### Nginx Static Serving
 
-## Troubleshooting
-
-### Port Already in Use
-
-```bash
-# On Linux/macOS
-lsof -ti:5173 | xargs kill -9
-
-# On Windows (PowerShell)
-netstat -ano | findstr :5173
-taskkill /PID <PID> /F
+```nginx
+# Serve built files
+location / {
+    root /var/www/certifytrack/dist;
+    try_files $uri $uri/ /index.html;
+}
 ```
 
-### Node Modules Issues
+## Performance Optimization
 
-```bash
-# Clear cache
-pnpm store prune
+### Code Splitting
 
-# Reinstall dependencies
-rm -rf node_modules pnpm-lock.yaml
-pnpm install
+Components are lazy-loaded for better initial page load:
+
+```jsx
+import { lazy, Suspense } from "react";
+
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const ClubDashboard = lazy(() => import("./pages/ClubDashboard"));
+
+function App() {
+  return (
+    <Suspense fallback={<div className="text-center py-12">Loading...</div>}>
+      <Routes>
+        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/club" element={<ClubDashboard />} />
+      </Routes>
+    </Suspense>
+  );
+}
 ```
 
-### API Connection Issues
+### Asset Optimization
 
-1. Check if backend is running: `http://localhost:8000/api/`
-2. Verify VITE_API_BASE_URL in `.env`
-3. Check CORS settings in Django backend
-4. Check browser console for errors
+- **Image lazy loading** for profile photos
+- **Font subset loading** for faster text rendering
+- **CSS-in-JS extraction** for critical rendering path
+- **Bundle analysis** for identifying optimization opportunities
 
----
+## Testing Strategy
+
+Run tests with:
+
+```bash
+# Unit tests (when implemented)
+pnpm test
+
+# E2E tests (when implemented)
+pnpm test:e2e
+
+# Coverage report
+pnpm test -- --coverage
+```
 
 ## Browser Support
 
-- Chrome/Edge 90+
-- Firefox 88+
-- Safari 14+
-- Mobile browsers (iOS Safari 14+, Chrome Android)
+- ✅ Chrome 90+ (recommended)
+- ✅ Firefox 88+
+- ✅ Safari 14+
+- ✅ Edge 90+
+- ✅ Mobile browsers (iOS Safari 14+, Chrome Android 90+)
 
----
-
-## Contributing
-
-1. Create a feature branch
-2. Follow the existing code style
-3. Test your changes
-4. Create a pull request
+## Development Guidelines
 
 ### Code Style
 
-- Use functional components
-- Use hooks (useState, useEffect, etc.)
-- Use meaningful variable names
-- Add comments for complex logic
-- Follow Prettier formatting
+- Use functional components with hooks
+- Prefer `useState` over class components
+- Implement proper error boundaries
+- Follow React naming conventions (PascalCase for components)
+- Use meaningful variable names and comments
+
+### File Organization
+
+- One component per file
+- Related utilities in separate modules
+- Constants and configuration in dedicated files
+- Tests co-located with components (future)
+
+### Git Workflow
+
+```bash
+# Create feature branch
+git checkout -b feature/new-dashboard-component
+
+# Commit changes
+git add .
+git commit -m "feat(dashboard): add new analytics component
+
+- Add real-time statistics display
+- Implement responsive chart components
+- Add data refresh functionality
+
+Closes #123"
+
+# Create pull request
+git push origin feature/new-dashboard-component
+```
+
+## Troubleshooting
+
+### Common Development Issues
+
+#### Port Conflicts
+
+```bash
+# Find process using port 5173
+lsof -ti:5173 | xargs kill -9
+
+# Or use different port
+pnpm dev --port 5174
+```
+
+#### API Connection Issues
+
+1. Verify `VITE_API_BASE_URL` in `.env`
+2. Check backend CORS settings
+3. Confirm backend is running (`http://localhost:8000/api/`)
+4. Check browser network tab for request details
+
+#### Build Issues
+
+```bash
+# Clear cache and rebuild
+rm -rf node_modules/.vite
+pnpm install
+pnpm build
+```
+
+#### Tailwind CSS Issues
+
+```bash
+# Regenerate Tailwind classes
+pnpm build  # This triggers CSS generation
+
+# Check if classes are in final CSS
+grep "bg-blue-600" dist/assets/index-*.css
+```
+
+## Contributing
+
+1. **Setup**: Follow the installation guide above
+2. **Branding**: Test changes across all user roles
+3. **Responsiveness**: Verify mobile/tablet layouts
+4. **Performance**: Test with real data loads
+5. **PR**: Create descriptive pull request with screenshots
+
+### Code Review Checklist
+
+C[ ] Cmepnnowt fiplows]ex obing pitterns responsive design tested
+
+- [c] Meblle respitcivs[d stgn tdsteu
+  -p[t] Eerorrsaes hnded prl
+- [ ]oadg statesimplemted
+- [ ]-Accssibility onidrao(optoal)
+- [ ]Performce ptimiz
+- [ ]Tstsaddd/updatd(utu)
 
 ---
 
-## Support
-
-For issues and questions:
-
-- Open an issue on GitHub
-- Check existing documentation
-- Review API integration guide
-
----
-
-## License
-
-MIT License - See LICENSE file for details
-
----
-
-**Last Updated**: November 22, 2025
+**Last Updated**: November 27, 2025

@@ -1,289 +1,422 @@
 # CertifyTrack Backend
 
-Django REST API backend for CertifyTrack platform - an academic event management and certification system.
+Django REST API backend for CertifyTrack platform - a comprehensive academic event management and certification system with AICTE activity point tracking.
 
-## Quick Start
+## Overview
 
-### Prerequisites
+The backend provides a robust REST API with role-based access control for managing users, events, hall bookings, certificates, and AICTE points. Built with Django REST Framework, it features comprehensive authentication, audit logging, real-time notifications, and automated workflow management.
+
+## Tech Stack
+
+- **Framework**: Django 5.2.6 with Django REST Framework 3.16.1
+- **Authentication**: JWT tokens (djangorestframework-simplejwt)
+- **Database**: PostgreSQL preferred, SQLite supported for development
+- **File Handling**: QR code generation, PDF processing
+- **Email**: SMTP-based notifications with customization
+- **Security**: Role-based permissions, audit logging, account lockout
+- **Development**: uv for dependency management
+
+## Prerequisites
+
 - Python 3.12+
-- PostgreSQL 15+ (optional, SQLite works for development)
+- PostgreSQL 15+ (recommended) or SQLite3
 - Git
 
-### Installation
+## Quick Installation
 
 ```bash
 # Clone repository
-git clone https://github.com/PranavKadagadakai/CertifyTrack.git
+git clone https://github.com/PranavKadagakai/CertifyTrack.git
 cd CertifyTrack/BackEnd
 
 # Create virtual environment
 python3.12 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
 
 # Environment setup
-cp .env.sample .env
-# Edit .env with your configuration
+cp .env.example .env
+# Edit .env with your database and email settings
 
 # Database setup
 python manage.py migrate
 python manage.py createsuperuser
 
-# Seed initial data
+# Seed sample data
 python manage.py seed_halls
 
-# Run development server
+# Start development server
 python manage.py runserver
 ```
-
-Visit `http://localhost:8000/api/` in your browser.
-
----
 
 ## Project Structure
 
 ```
 api/
-├── models.py              # Database models
-├── views.py               # API ViewSets and Views
-├── serializers.py         # DRF Serializers
-├── permissions.py         # Custom permission classes
-├── urls.py                # URL routing
-├── email_utils.py         # Email utilities
-├── signals.py             # Django signals
-├── admin.py               # Django admin
-├── tests.py               # Unit tests
-├── management/
-│   └── commands/
-│       ├── seed_halls.py           # Seed halls data
-│       ├── set_admin_email.py      # Set admin email
-│       └── verify_all_admins.py    # Verify admins
-└── migrations/            # Database migrations
+├── models.py              # Database models with relationships
+├── views.py               # ViewSets, API views, and business logic
+├── serializers.py         # DRF serializers for API responses
+├── permissions.py         # Custom permission classes for role-based access
+├── urls.py                # URL routing configuration
+├── email_utils.py         # Email sending utilities with templates
+├── signals.py             # Django signals for automated workflows
+├── admin.py               # Django admin configuration
+├── management/commands/
+│   ├── seed_halls.py          # Populates sample hall data
+│   ├── set_admin_email.py     # Configures admin email settings
+│   ├── verify_all_admins.py   # Verifies admin user emails
+│   └── update_superuser_user_types.py  # Updates superuser roles
+├── migrations/            # Database migrations
+└── tests.py               # Unit tests
 
 CertifyTrack/
-├── settings.py            # Django settings
-├── urls.py                # URL configuration
-├── asgi.py                # ASGI config
-└── wsgi.py                # WSGI config
-```
+├── settings.py            # Django configuration with security
+├── urls.py                # Main URL routing
+├── asgi.py                # ASGI config for async support
+└── wsgi.py                # WSGI config for production
 
----
+media/                    # Uploaded files (certificates, profiles)
+templates/                # Django templates (if needed)
+
+requirements.txt           # Python dependencies
+pyproject.toml            # Project metadata and dependencies
+uv.lock                   # Dependency lock file
+manage.py                # Django CLI management
+```
 
 ## Database Models
 
-### User Management
-- **User**: Custom user model with email and role-based access
-- **Student**: Student profile with AICTE point tracking
-- **Mentor**: Faculty mentor profile with mentee management
-- **ClubOrganizer**: Club organizer profile
+### Core Models
 
-### Organization
-- **Club**: Student clubs with coordinator assignment
-- **ClubRole**: Role permissions (President, Secretary, etc.)
-- **ClubMember**: Club membership tracking
+#### User Management
 
-### Events & Hall Booking
-- **Event**: Event details with status lifecycle
-- **EventRegistration**: Student event registration
-- **EventAttendance**: Attendance tracking
-- **Hall**: Hall/venue information
-- **HallBooking**: Hall booking with conflict detection
+- **User**: Custom Django user model with email authentication and role-based access
+  - Roles: `student`, `mentor`, `club_organizer`, `admin`
+  - Features: email verification, account lockout, password reset
+- **Student**: Profile with USN, department, semester, AICTE point tracking
+- **Mentor**: Faculty profile with employee ID, qualifications, mentee management
+- **ClubOrganizer**: Club organizer profile with club association
 
-### Certificates & AICTE
-- **CertificateTemplate**: Global certificate template
-- **Certificate**: Generated certificates for events
-- **AICTECategory**: AICTE point categories
-- **AICTEPointTransaction**: Point allocation tracking
+#### Organization
 
-### System
-- **Notification**: User notifications
-- **AuditLog**: Activity audit trail
+- **Club**: Student clubs with hierarchical structure (President, Secretary, etc.)
+- **ClubRole**: Permission-based roles within clubs
+- **ClubMember**: Club membership with role assignments
 
----
+### Event Management
+
+- **Event**: Comprehensive event model with lifecycle states
+  - States: `draft`, `scheduled`, `ongoing`, `completed`, `cancelled`
+  - Features: multi-day support, capacity limits, AICTE integration
+- **EventRegistration**: Student event registrations with status tracking
+- **EventAttendance**: Real-time attendance marking with QR integration
+
+### Hall Booking System
+
+- **Hall**: Venue management with capacity, facilities, and availability
+- **HallBooking**: Smart booking with conflict detection and approval workflow
+  - Automatic conflict checking for overlapping bookings
+  - Admin approval system for conflict resolution
+
+### Certificate Management
+
+- **CertificateTemplate**: Versioned global certificate templates
+- **Certificate**: Generated certificates with QR code verification
+  - Features: SHA256 file hashing for integrity, automatic QR generation
+
+### AICTE Points System
+
+- **AICTECategory**: Configurable point categories with min/max limits
+- **AICTEPointTransaction**: Point allocation with mentor approval workflow
+  - States: `PENDING`, `APPROVED`, `REJECTED`
+
+### System Features
+
+- **Notification**: Comprehensive notification system with email integration
+  - Types: event registrations, reminders, approvals, certificates, etc.
+- **UserNotificationPreferences**: Granular notification control per user
+- **AuditLog**: Complete audit trail for security and compliance
 
 ## API Endpoints
 
-### Authentication
+### Authentication & Registration
+
 ```
-POST   /auth/register/              Register new user
-POST   /auth/login/                 Login with credentials
-POST   /auth/token/refresh/         Refresh JWT token
-POST   /auth/verify-email/          Verify email address
+POST   /auth/register/              User registration with email verification
+POST   /auth/login/                 JWT token authentication with account lockout
+POST   /auth/verify-email/          Email verification
 POST   /auth/resend-verification/   Resend verification email
-POST   /auth/password-reset/request/ Request password reset
-POST   /auth/password-reset/confirm/ Confirm password reset
+POST   /auth/password-reset/request/  Request OTP-based password reset
+POST   /auth/password-reset/confirm/ Confirm password reset with OTP
 ```
 
-### User Management
+### Profile Management
+
 ```
-GET    /students/                   List all students
-GET    /students/{id}/              Get student details
-GET    /profile/                    Get current user profile
-PATCH  /profile/                    Update current user profile
-GET    /profile/student/            Get student profile
-GET    /profile/mentor/             Get mentor profile
-GET    /profile/club-organizer/     Get club organizer profile
+GET    /profile/                    Get current user profile (role-specific)
+PATCH  /profile/                    Update user profile and core fields
+GET    /profile/student/            Student-specific profile data
+PATCH  /profile/student/            Update student profile
+GET    /profile/mentor/             Mentor-specific profile data
+PATCH  /profile/mentor/             Update mentor profile
+GET    /profile/club-organizer/     Organizer-specific profile data
+PATCH  /profile/club-organizer/     Update organizer profile
 ```
 
-### Events
+### Student Management
+
 ```
-GET    /events/                     List all events
-GET    /events/?club=true           List club's events
-POST   /events/                     Create event
+GET    /students/                   List students (admin/mentor access)
+GET    /students/mentees/           List mentor's assigned students
+POST   /students/{id}/assign/       Assign student to mentor
+```
+
+### Mentor Management
+
+```
+GET    /mentors/                    List mentors (admin only)
+GET    /mentors/{id}/mentees/       List students assigned to mentor
+```
+
+### Club Organizer Management
+
+```
+GET    /club-organizers/            List organizers (admin only)
+POST   /club-organizers/{id}/assign-club/ Assign organizer to club
+```
+
+### Admin User Management
+
+```
+POST   /admin/users/create/         Create single user account
+POST   /admin/users/bulk-create/    Bulk user creation from CSV
+GET    /admin/users/                List all users with filtering
+PATCH  /admin/users/{id}/           Update user account
+POST   /admin/users/{id}/disable-account/ Disable user account
+POST   /admin/users/{id}/enable-account/  Enable user account
+POST   /admin/users/{id}/reset-password/ Reset user password
+POST   /admin/users/{id}/unlock-account/ Unlock locked account
+```
+
+### Admin Club Management
+
+```
+GET    /admin/clubs/                List all clubs
+POST   /admin/clubs/                Create new club with coordinator
+PATCH  /admin/clubs/{id}/           Update club details
+POST   /admin/clubs/{id}/assign-organizer/ Assign organizer to club
+POST   /admin/clubs/{id}/assign-coordinator/ Change club coordinator
+POST   /admin/clubs/{id}/assign-club-head/  Assign student club head
+```
+
+### Mentee Assignment Management
+
+```
+GET    /admin/mentees/              Get mentor-mentee assignments
+POST   /admin/mentees/bulk-assign/  Bulk assignment from CSV
+```
+
+### Event Management
+
+```
+GET    /events/                     List events (with club filter)
+POST   /events/                     Create new event (club organizer)
 GET    /events/{id}/                Get event details
 PATCH  /events/{id}/                Update event
 DELETE /events/{id}/                Delete event
-POST   /events/{id}/register/       Register for event
-POST   /events/{id}/start/          Start event
-POST   /events/{id}/end/            End event
-POST   /events/{id}/mark-attendance/ Mark attendance
-POST   /events/{id}/generate-certificates/ Generate certificates
+POST   /events/{id}/register/       Register for event (student)
+POST   /events/{id}/upload-attendance/ Upload attendance via CSV/Excel
+POST   /events/{id}/generate-certificates/ Generate certificates for attendees
+GET    /events/{id}/participants/   Get participant list for attendance
 ```
 
-### Hall Management
+### Hall & Booking Management
+
 ```
-GET    /halls/                      List all halls
-GET    /halls/available/            Get available halls
-POST   /hall-bookings/              Create booking
-GET    /hall-bookings/              List bookings
+GET    /halls/                      List available halls
+GET    /halls/available/            Get halls available for date/time
+GET    /hall-bookings/              List club bookings
+POST   /hall-bookings/              Create hall booking with conflict checking
 GET    /hall-bookings/?club=true    List club's bookings
 PATCH  /hall-bookings/{id}/         Update booking
-DELETE /hall-bookings/{id}/         Cancel booking
+POST   /hall-bookings/{id}/approve/ Approve pending booking (admin)
+POST   /hall-bookings/{id}/reject/  Reject pending booking (admin)
+GET    /hall-bookings/list_admin_pending/ List pending bookings (admin)
 ```
 
-### Club Management
-```
-GET    /clubs/                      List all clubs
-POST   /clubs/                      Create club (admin)
-PATCH  /clubs/{id}/                 Update club (admin)
-GET    /club-members/               List club members
-POST   /club-members/               Add club member (admin)
-GET    /club-roles/                 List available roles
-```
+### AICTE Management
 
-### Admin Operations
 ```
-POST   /admin/users/create/         Create user account
-POST   /admin/users/bulk-create/    Bulk import users
-GET    /admin/users/                List all users
-PATCH  /admin/users/{id}/           Update user
-DELETE /admin/users/{id}/           Delete user
-GET    /admin/clubs/                List and manage clubs
-POST   /admin/mentees/assign/       Assign mentee to mentor
-POST   /admin/mentees/bulk-assign/  Bulk assign mentees
-GET    /admin/aicte/                Manage AICTE categories
-GET    /admin/reports/              Generate reports
-```
-
-### AICTE Points
-```
-GET    /aicte-categories/           List point categories
+GET    /aicte-categories/           List AICTE categories
 POST   /aicte-categories/           Create category (admin)
+PATCH  /aicte-categories/{id}/      Update category (admin)
 GET    /aicte-transactions/         List point transactions
-POST   /aicte-transactions/         Create transaction
-PATCH  /aicte-transactions/{id}/    Approve/reject points
+POST   /aicte-transactions/{id}/approve/ Approve points (mentor)
+POST   /aicte-transactions/{id}/reject/ Reject points (mentor)
 ```
 
-### Other
+### Certificate Management
+
 ```
-GET    /certificates/               List certificates
-POST   /certificates/               Create certificate
-GET    /certificate-templates/      List templates
-PATCH  /certificate-templates/      Update template (admin)
-GET    /notifications/              List notifications
-GET    /audit-logs/                 View audit logs (admin)
-GET    /dashboard/stats/            Dashboard statistics
+GET    /certificates/               List user certificates
+POST   /certificates/               Generate certificate
+GET    /certificates/verify/{hash}/ Verify certificate by hash
+GET    /certificate-templates/      List templates (admin)
+POST   /certificate-templates/      Upload template (admin)
 ```
 
----
+### Notification System
+
+```
+GET    /notifications/              List user notifications
+POST   /notifications/mark_all_read/ Mark all as read
+POST   /notifications/{id}/mark_read/ Mark single as read
+POST   /notifications/{id}/take_action/ Take action on notification
+```
+
+### System Administration
+
+```
+GET    /admin/reports/system_stats/  System-wide statistics
+GET    /admin/reports/audit_logs/   Audit logs with filtering
+GET    /admin/reports/user_activity_report/ User activity statistics
+GET    /admin/reports/event_statistics/ Event and attendance stats
+GET    /admin/reports/hall_utilization_report/ Hall booking statistics
+```
+
+### Utility Endpoints
+
+```
+GET    /dashboard/stats/            Role-specific dashboard data
+GET    /audit-logs/                Audit log browsing (admin)
+```
 
 ## Authentication
 
-### JWT Token Flow
+### JWT Workflow
 
 ```
-1. User Login (POST /auth/login/)
-   ├─ Request: {username, password}
-   └─ Response: {access, refresh}
+1. POST /auth/login/ with credentials
+   → Returns {access: token, refresh: token, user: data}
 
-2. Use Access Token
-   ├─ Header: Authorization: Bearer <access_token>
-   └─ Valid for 24 hours
+2. Use access token in Authorization header
+   Authorization: Bearer <access_token>
 
-3. Token Expiration
-   ├─ POST /auth/token/refresh/ with refresh token
-   └─ Get new access token
+3. Refresh access token when expired
+   POST /auth/token/refresh/ with refresh token
 ```
 
-### Example Login Request
+### Account Security
 
-```bash
-curl -X POST http://localhost:8000/api/auth/login/ \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "john_doe",
-    "password": "SecurePass123!"
-  }'
-```
+- **Account Lockout**: 5 failed login attempts → 15-minute lockdown
+- **Email Verification**: Required for non-admin users
+- **Password Reset**: OTP-based secure reset via email
+- **Session Management**: JWT tokens with configurable expiration
 
-Response:
-```json
-{
-  "access": "eyJ0eXAiOiJKV1QiLCJhbGc...",
-  "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc...",
-  "user": {
-    "id": 1,
-    "username": "john_doe",
-    "email": "john@example.com",
-    "user_type": "student"
-  }
-}
-```
+## Permissions & Access Control
 
----
+### Permission Classes
+
+- `IsClubAdmin`: Club organizers and admins
+- `IsStudent`: Student role only
+- `IsMentor`: Mentor role only
+- `IsAdmin`: Admin role only
+
+### Access Matrix
+
+| Feature          | Student | Mentor | Club Org  | Admin |
+| ---------------- | ------- | ------ | --------- | ----- |
+| View Events      | ✅      | ✅     | ✅        | ✅    |
+| Register Events  | ✅      | ✅     | ❌        | ❌    |
+| Create Events    | ❌      | ❌     | ✅ (club) | ✅    |
+| Mark Attendance  | ❌      | ❌     | ✅ (club) | ✅    |
+| Book Halls       | ❌      | ❌     | ✅ (club) | ✅    |
+| Approve Bookings | ❌      | ❌     | ❌        | ✅    |
+| User Management  | ❌      | ❌     | ❌        | ✅    |
+| System Config    | ❌      | ❌     | ❌        | ✅    |
+| View Reports     | ❌      | ❌     | ✅ (club) | ✅    |
+
+## Smart Features
+
+### Hall Booking Intelligence
+
+- **Conflict Detection**: Automatic checking of overlapping bookings
+- **Auto-Approval**: Immediate approval for non-conflicting bookings
+- **Preference Assignment**: Primary/secondary hall selection with fallback
+- **Admin Resolution**: Manual approval workflow for conflicts
+
+### Event Workflow Automation
+
+- **Hall Assignment**: Automatic venue assignment when events are scheduled
+- **Notification Triggers**: Automated alerts for registration, approvals, certificates
+- **Status Lifecycle**: Guided event management from draft to completion
+- **Certificate Generation**: Bulk PDF generation with QR verification
+
+### AICTE Points Management
+
+- **Approval Workflow**: Mentor review and approval system
+- **Category Validation**: Configurable point limits per category
+- **Audit Trail**: Complete tracking of all point transactions
+- **Student Tracking**: Real-time point balance monitoring
 
 ## Management Commands
 
-### Seed Halls Data
+### Database Seeding
+
 ```bash
 python manage.py seed_halls
 ```
+
 Creates 8 sample halls with different capacities and facilities.
 
-### Set Admin Email
+### Admin Configuration
+
 ```bash
 python manage.py set_admin_email
 ```
-Configures admin email for notifications.
 
-### Verify Admin Accounts
+Configures admin email settings for notifications.
+
+### User Verification
+
 ```bash
 python manage.py verify_all_admins
 ```
+
 Marks all admin accounts as email-verified.
 
----
+### Superuser Updates
+
+```bash
+python manage.py update_superuser_user_types
+```
+
+Updates Django superuser accounts with proper user types.
 
 ## Configuration
 
-### Environment Variables (`.env`)
+### Environment Variables (`BackEnd/.env`)
 
 ```env
-# Django
+# Django Core
 DEBUG=True
-SECRET_KEY=your-secret-key-change-in-production
+SECRET_KEY=your-very-long-secret-key-here
 ALLOWED_HOSTS=localhost,127.0.0.1,yourdomain.com
 
 # Database
-DB_ENGINE=django.db.backends.sqlite3
-DB_NAME=db.sqlite3
+DB_ENGINE=django.db.backends.postgresql
+DB_NAME=certifytrack_db
+DB_USER=certifytrack_user
+DB_PASSWORD=your_secure_password
+DB_HOST=localhost
+DB_PORT=5432
 
 # CORS
-CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
+CORS_ALLOWED_ORIGINS=http://localhost:5173,https://yourfrontend.com
 
-# Email
+# Email Configuration
 EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
 EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
@@ -292,302 +425,190 @@ EMAIL_HOST_USER=your-email@gmail.com
 EMAIL_HOST_PASSWORD=your-app-password
 DEFAULT_FROM_EMAIL=noreply@certifytrack.com
 
-# JWT
+# JWT Configuration
 JWT_ALGORITHM=HS256
 JWT_EXPIRATION_HOURS=24
 ```
 
-### Settings for Production
+### Production Settings
 
 In `CertifyTrack/settings.py`:
 
 ```python
-# Security
-DEBUG = False
-ALLOWED_HOSTS = ['yourdomain.com', 'www.yourdomain.com']
+# Security Settings
 SECURE_SSL_REDIRECT = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_HSTS_SECONDS = 31536000
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 
-# Database (PostgreSQL)
+# Database Optimization
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'certifytrack_db',
-        'USER': 'certifytrack_user',
-        'PASSWORD': 'your_secure_password',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'OPTIONS': {
+            'sslmode': 'require',
+        }
     }
 }
 
-# Static and Media Files
+# Static & Media Files
 STATIC_URL = '/static/'
-STATIC_ROOT = '/var/www/certifytrack/staticfiles/'
+STATIC_ROOT = '/var/www/certifytrack/static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = '/var/www/certifytrack/media/'
 ```
 
----
+## API Usage Examples
 
-## Permissions & Access Control
+### Event Creation
 
-### User Types and Permissions
-
-| Action | Student | Mentor | Club Org | Admin |
-|--------|---------|--------|----------|-------|
-| Register for events | ✅ | ✅ | ❌ | ❌ |
-| Create events | ❌ | ❌ | ✅ | ✅ |
-| Manage attendees | ❌ | ❌ | ✅ | ✅ |
-| Book halls | ❌ | ❌ | ✅ | ✅ |
-| Approve points | ❌ | ✅ | ❌ | ✅ |
-| Manage users | ❌ | ❌ | ❌ | ✅ |
-| Configure system | ❌ | ❌ | ❌ | ✅ |
-
-### Permission Classes
-
-```python
-# Custom permission classes in permissions.py
-IsAdmin              # Only admins
-IsClubAdmin          # Only club organizers
-IsStudent            # Only students
-IsMentor             # Only mentors
-IsAdminOrReadOnly    # Admins can modify, others read-only
+```bash
+curl -X POST http://localhost:8000/api/events/ \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Python Workshop",
+    "description": "Advanced Python programming",
+    "event_date": "2025-01-15",
+    "start_time": "14:00",
+    "max_participants": 50,
+    "aicte_category": 1,
+    "points_awarded": 5
+  }'
 ```
 
----
+### Bulk Attendance Upload
 
-## Error Handling
-
-### Common Error Responses
-
-```json
-{
-  "detail": "Authentication credentials were not provided.",
-  "code": "not_authenticated"
-}
+```bash
+curl -X POST http://localhost:8000/api/events/123/upload-attendance/ \
+  -H "Authorization: Bearer <token>" \
+  -F "file=@attendance.csv"
 ```
 
-```json
-{
-  "detail": "You do not have permission to perform this action.",
-  "code": "permission_denied"
-}
+### Certificate Verification
+
+```bash
+GET /api/certificates/verify/sha256hash123/
+# Returns certificate details or 404
 ```
 
-```json
-{
-  "error": "Hall is not available for the selected time slot.",
-  "conflicts": [...]
-}
-```
+## Development
 
-### HTTP Status Codes
-
-| Code | Meaning |
-|------|---------|
-| 200 | OK - Request succeeded |
-| 201 | Created - Resource created |
-| 400 | Bad Request - Invalid input |
-| 401 | Unauthorized - Authentication required |
-| 403 | Forbidden - Permission denied |
-| 404 | Not Found - Resource not found |
-| 409 | Conflict - Hall booking conflict |
-| 500 | Server Error |
-
----
-
-## Testing
-
-### Run Tests
+### Testing
 
 ```bash
 # Run all tests
 python manage.py test
 
 # Run specific test
-python manage.py test api.tests.TestEventViewSet
+python manage.py test api.tests.TestEventViewSet -v 2
 
-# Run with verbosity
-python manage.py test --verbosity=2
-
-# Run with coverage
+# Coverage report
 coverage run --source='api' manage.py test
-coverage report
-coverage html  # Generate HTML report
+coverage report -m
 ```
 
-### Writing Tests
+### API Documentation
 
-```python
-from django.test import TestCase
-from rest_framework.test import APIClient
-from api.models import User, Event
+The API is self-documenting via Django REST Framework's browsable interface:
 
-class TestEventAPI(TestCase):
-    def setUp(self):
-        self.client = APIClient()
-        self.user = User.objects.create_user(
-            username='testuser',
-            password='testpass123',
-            user_type='club_organizer'
-        )
-        
-    def test_create_event(self):
-        self.client.force_authenticate(user=self.user)
-        response = self.client.post('/api/events/', {
-            'name': 'Test Event',
-            'event_date': '2025-12-01',
-            'start_time': '10:00',
-        })
-        self.assertEqual(response.status_code, 201)
+```
+http://localhost:8000/api/
 ```
 
----
+### Code Style
 
-## Deployment
+- Follow PEP 8 conventions
+- Use type hints where applicable
+- Write comprehensive docstrings
+- Use meaningful variable names
 
-### With Gunicorn
+## Production Deployment
+
+### Docker Deployment
 
 ```bash
-# Install gunicorn
-pip install gunicorn
+# Build and run with Docker
+docker-compose up -d
+```
 
-# Run production server
+### Gunicorn Configuration
+
+```bash
 gunicorn CertifyTrack.wsgi:application \
-  --workers 4 \
   --bind 0.0.0.0:8000 \
-  --timeout 120 \
-  --access-logfile /var/log/certifytrack/access.log \
-  --error-logfile /var/log/certifytrack/error.log
+  --workers 4 \
+  --timeout 120
 ```
 
-### With Docker
+### Nginx Proxy Configuration
 
-```dockerfile
-FROM python:3.12-slim
+```nginx
+upstream django_backend {
+    server 127.0.0.1:8000;
+}
 
-WORKDIR /app
-
-# Install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy project
-COPY . .
-
-# Collect static files
-RUN python manage.py collectstatic --noinput
-
-# Run gunicorn
-CMD ["gunicorn", "CertifyTrack.wsgi:application", "--bind", "0.0.0.0:8000"]
+location /api/ {
+    proxy_pass http://django_backend;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+}
 ```
-
----
 
 ## Troubleshooting
 
-### Database Issues
+### Common Issues
+
+**1. Database Connection Errors**
+
 ```bash
-# Reset database (development only)
-rm db.sqlite3
-python manage.py migrate
-python manage.py seed_halls
+# Check PostgreSQL service
+sudo systemctl status postgresql
+
+# Create database manually
+createdb certifytrack_db
 ```
 
-### Migration Issues
-```bash
-# Create migrations
-python manage.py makemigrations
+**2. Permission Denied Errors**
 
-# Show migration status
-python manage.py showmigrations
+- Ensure proper user permissions in Django admin
+- Check role assignments for club organizers and mentors
 
-# Revert migration
-python manage.py migrate api 0001
-```
+**3. Email Not Sending**
 
-### Import Errors
-```bash
-# Verify imports
-python -c "import django; django.setup(); from api.models import *"
-```
+- Verify SMTP settings in `.env`
+- Check email provider credentials
+- Ensure app passwords are used for Gmail
 
----
+**4. File Upload Issues**
+
+- Verify `MEDIA_ROOT` and `MEDIA_URL` settings
+- Check file permissions on upload directories
+
+## Security Features
+
+- ✅ **JWT-based Authentication** with role-based access
+- ✅ **Account Lockout** after failed login attempts
+- ✅ **Email Verification** for account activation
+- ✅ **Audit Logging** for all critical operations
+- ✅ **File Upload Security** with validation
+- ✅ **CORS Protection** with origin restrictions
+- ✅ **Rate Limiting** (recommended for production)
+- ✅ **SQL Injection Prevention** via ORM
+- ✅ **XSS Protection** with Django security middleware
 
 ## Performance Optimization
 
-### Query Optimization
-```python
-# Use select_related() and prefetch_related()
-events = Event.objects.select_related('club', 'created_by').prefetch_related('registrations')
-
-# Use only() and defer()
-students = Student.objects.only('id', 'user_id', 'usn')
-```
-
-### Caching
-```python
-from django.core.cache import cache
-
-# Cache hall availability
-cache_key = f"halls_available_{date}_{start}_{end}"
-available = cache.get(cache_key)
-if not available:
-    available = calculate_available_halls(date, start, end)
-    cache.set(cache_key, available, 300)  # 5 minutes
-```
-
-### Database Indexing
-Indexes are already configured in models for commonly queried fields.
-
----
-
-## Security Best Practices
-
-✅ **Implemented:**
-- HTTPS/TLS enforcement
-- CSRF protection
-- XSS prevention
-- SQL injection prevention (via ORM)
-- Password hashing (bcrypt)
-- JWT token validation
-- CORS configuration
-- Rate limiting (recommended: Django REST Throttling)
-
-❗ **Recommendations:**
-- Use environment variables for sensitive data
-- Implement rate limiting on APIs
-- Enable audit logging
-- Regular security updates
-- Use strong SECRET_KEY
-- Implement API versioning
-
----
+- **Database Indexing** on frequently queried fields
+- **Query Optimization** with select_related and prefetch_related
+- **Efficient Serialization** with custom fields
+- **Background Processing** for email notifications
+- **Caching Strategy** (Redis recommended for production)
 
 ## Contributing
 
 1. Create a feature branch
-2. Make your changes
-3. Write tests
-4. Run tests: `python manage.py test`
-5. Create pull request
+2. Write tests for new functionality
+3. Follow code style guidelines
+4. Update documentation
 
-## Support
-
-For issues and questions:
-- Open an issue on GitHub
-- Check existing documentation
-- Review API docs at `/api/` endpoint
-
----
-
-## License
-
-MIT License - See LICENSE file for details
-
----
-
-**Last Updated**: November 22, 2025
+**Last Updated**: November 27, 2025
