@@ -332,14 +332,52 @@ class ProfileView(generics.RetrieveUpdateAPIView):
         return user
 
     def perform_update(self, serializer):
-        instance = serializer.save()
-        user_data = self.request.data.get('user', {})
-        user = self.request.user
-        for attr in ['username', 'first_name', 'last_name']:
-            if attr in user_data:
-                setattr(user, attr, user_data[attr])
-        user.save()
-        log_action(user, f"Updated profile ({user.user_type})")
+        """
+        Override perform_update to add logging and ensure user model updates are saved
+        """
+        instance = self.get_object()
+
+        # Extract user data and profile data
+        user_data = {}
+        profile_data = {}
+
+        for key, value in serializer.validated_data.items():
+            if key.startswith('user.'):
+                user_data[key[5:]] = value  # Remove 'user.' prefix
+            else:
+                profile_data[key] = value
+                
+        # Update user model if user data was provided
+        if user_data:
+            user = getattr(instance, 'user', instance)
+            for attr, value in user_data.items():
+                setattr(user, attr, value)
+            user.save()
+
+        # Update profile model
+        for attr, value in profile_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Check profile completion for profiles
+        if hasattr(instance, 'profile_completed'):
+            required_fields = []
+            if hasattr(instance, 'student_profile'):
+                required_fields = ['phone_number', 'date_of_birth', 'address', 'emergency_contact_name', 'emergency_contact_phone']
+            elif hasattr(instance, 'mentor_profile'):
+                required_fields = ['phone_number', 'date_of_birth', 'address', 'qualifications']
+            elif hasattr(instance, 'club_organizer_profile'):
+                required_fields = ['phone_number', 'date_of_birth', 'address', 'designation_in_club']
+
+            if required_fields and not instance.profile_completed:
+                if all(getattr(instance, field, None) for field in required_fields):
+                    instance.profile_completed = True
+                    instance.profile_completed_at = now()
+                    instance.save()
+
+        log_action(self.request.user, f"Updated profile ({self.request.user.user_type})")
+
+
 
 
 class StudentProfileView(generics.RetrieveUpdateAPIView):
@@ -369,20 +407,7 @@ class StudentProfileView(generics.RetrieveUpdateAPIView):
 
         log_action(user, "Updated student profile")
     
-    def update(self, instance, validated_data):
-        # Update nested user fields if present in top-level validated_data
-        user = instance.user
-        for attr in ['username', 'first_name', 'last_name']:
-            if attr in validated_data:
-                setattr(user, attr, validated_data.pop(attr))
-        user.save()
 
-        # Update profile fields
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-
-        return instance
 
 
 class MentorProfileView(generics.RetrieveUpdateAPIView):
@@ -410,20 +435,6 @@ class MentorProfileView(generics.RetrieveUpdateAPIView):
             mentor.save()
 
         log_action(user, "Updated mentor profile")
-        
-    def update(self, instance, validated_data):
-        user = instance.user
-        for attr in ['username', 'first_name', 'last_name']:
-            if attr in validated_data:
-                setattr(user, attr, validated_data.pop(attr))
-        user.save()
-
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-
-        return instance
-
 
 
 class ClubOrganizerProfileView(generics.RetrieveUpdateAPIView):
@@ -451,19 +462,6 @@ class ClubOrganizerProfileView(generics.RetrieveUpdateAPIView):
             organizer.save()
 
         log_action(user, "Updated club organizer profile")
-        
-    def update(self, instance, validated_data):
-        user = instance.user
-        for attr in ['username', 'first_name', 'last_name']:
-            if attr in validated_data:
-                setattr(user, attr, validated_data.pop(attr))
-        user.save()
-
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-
-        return instance
 
 
 # ============================================================================
@@ -1939,7 +1937,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
         notifications = self.get_queryset()
         notifications.update(is_read=True)
         log_action(request.user, "Marked all notifications as read")
-        
+
         return Response({'message': 'All notifications marked as read.'})
 
     @action(detail=True, methods=['post'])
@@ -1948,8 +1946,84 @@ class NotificationViewSet(viewsets.ModelViewSet):
         notification = self.get_object()
         notification.is_read = True
         notification.save()
-        
+
         return Response({'message': 'Notification marked as read.'})
+
+    @action(detail=True, methods=['post'])
+    def take_action(self, request, pk=None):
+        """Take action on notification based on its type"""
+        notification = self.get_object()
+        action = request.data.get('action')
+        user = request.user
+
+        if notification.notification_type == 'certificate_generated' and notification.event:
+            # Open certificate download
+            certificate = Certificate.objects.filter(
+                event=notification.event,
+                student__user=user
+            ).first()
+            if certificate:
+                return Response({
+                    'type': 'download',
+                    'certificate_id': certificate.id,
+                    'file_url': request.build_absolute_uri(certificate.file.url) if certificate.file else None
+                })
+            return Response({'error': 'Certificate not found'}, status=404)
+
+        elif notification.notification_type == 'points_approved' and notification.aicte_transaction:
+            # Open AICTE points verification page
+            return Response({
+                'type': 'redirect',
+                'url': f'/dashboard?section=aicte_points',
+                'transaction_id': notification.aicte_transaction.id
+            })
+
+        elif notification.notification_type == 'points_rejected' and notification.aicte_transaction:
+            # Open AICTE points verification page
+            return Response({
+                'type': 'redirect',
+                'url': f'/dashboard?section=aicte_points',
+                'transaction_id': notification.aicte_transaction.id
+            })
+
+        elif notification.notification_type == 'hall_booking_approved' and notification.hall_booking:
+            # Open hall booking details
+            return Response({
+                'type': 'redirect',
+                'url': f'/dashboard?section=hall_bookings',
+                'booking_id': notification.hall_booking.id
+            })
+
+        elif notification.notification_type == 'hall_booking_rejected' and notification.hall_booking:
+            # Open hall booking details
+            return Response({
+                'type': 'redirect',
+                'url': f'/dashboard?section=hall_bookings',
+                'booking_id': notification.hall_booking.id
+            })
+
+        elif notification.notification_type == 'event_registration':
+            # Open event details
+            if notification.event:
+                return Response({
+                    'type': 'redirect',
+                    'url': f'/dashboard?section=events&event_id={notification.event.id}'
+                })
+
+        elif notification.notification_type == 'event_reminder':
+            # Open event details
+            if notification.event:
+                return Response({
+                    'type': 'redirect',
+                    'url': f'/dashboard?section=events&event_id={notification.event.id}'
+                })
+
+        # Mark as read after taking action
+        notification.is_read = True
+        notification.save()
+
+        log_action(user, f"Took action on notification {notification.id}: {action}")
+        return Response({'message': 'Action completed.'})
 
 
 # ============================================================================

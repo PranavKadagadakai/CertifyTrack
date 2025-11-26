@@ -13,6 +13,7 @@ import MentorDashboard from "./pages/MentorDashboard";
 import ClubDashboard from "./pages/ClubDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import ProfilePage from "./pages/ProfilePage";
+import NotificationsPage from "./pages/NotificationsPage";
 
 const App = () => {
   const { user, loading } = useAuth();
@@ -53,6 +54,14 @@ const App = () => {
           element={
             <PrivateRoute>
               <ProfilePage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <PrivateRoute>
+              <NotificationsPage />
             </PrivateRoute>
           }
         />

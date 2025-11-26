@@ -3,7 +3,7 @@ import axios from "axios";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api",
-  timeout: 10000, // 10s timeout for requests (helpful during dev)
+  timeout: 20000, // 20s timeout for requests (helpful during dev)
 });
 
 // request interceptor: add Bearer token if we have one

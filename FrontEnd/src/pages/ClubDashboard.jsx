@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import api from "../api";
 import HallBookingForm from "../components/HallBookingForm";
 import EventManagement from "../components/EventManagement";
-import Notifications from "../components/Notifications";
 
 const ClubDashboard = () => {
   const [bookings, setBookings] = useState([]);
@@ -49,11 +48,6 @@ const ClubDashboard = () => {
         <p className="text-gray-600 mb-6">
           Manage your club events and hall bookings
         </p>
-
-        {/* Notifications */}
-        <div className="mb-6">
-          <Notifications />
-        </div>
 
         {/* Tab Navigation */}
         <div className="flex gap-2 mb-6 border-b border-gray-300">

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import api from "../api";
-import Notifications from "../components/Notifications";
 import Reports from "../components/Reports";
 
 const MentorDashboard = () => {
@@ -85,9 +84,8 @@ const MentorDashboard = () => {
         </div>
       </div>
 
-      {/* Notifications and Reports */}
-      <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Notifications />
+      {/* Reports */}
+      <div className="mt-6">
         <Reports />
       </div>
     </div>

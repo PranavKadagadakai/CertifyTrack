@@ -3,7 +3,7 @@ import api from "../api";
 import { useAuth } from "../context/AuthContext";
 
 function ProfilePage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [profile, setProfile] = useState(null);
   const [formData, setFormData] = useState({});
   const [loading, setLoading] = useState(true);
@@ -74,8 +74,6 @@ function ProfilePage() {
 
     try {
       const submitData = new FormData();
-
-      // Add all form fields
       Object.keys(formData).forEach((key) => {
         const value = formData[key];
         if (key !== "profile_photo") {
@@ -98,6 +96,9 @@ function ProfilePage() {
 
       setProfile(response.data);
       setSuccess("Profile updated successfully!");
+
+      // Refresh user in context to update navbar profile photo
+      refreshUser();
 
       // Reset photo state
       setProfilePhoto(null);
