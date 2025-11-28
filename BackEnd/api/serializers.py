@@ -9,7 +9,7 @@ from .models import (
     User, Student, Mentor, ClubOrganizer, Club, Event, EventRegistration, Certificate,
     Hall, HallBooking, AICTECategory, AICTEPointTransaction,
     Notification, AuditLog, ClubMember, ClubRole, EventAttendance,
-    CertificateTemplate, UserNotificationPreferences
+    CertificateTemplate, UserNotificationPreferences, PrincipalSignature
 )
 from .email_utils import send_verification_email, send_password_reset_email
 
@@ -441,10 +441,22 @@ class CertificateTemplateSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at', 'updated_at']
 
 
+class PrincipalSignatureSerializer(serializers.ModelSerializer):
+    uploaded_by_username = serializers.CharField(source='uploaded_by.username', read_only=True, allow_null=True)
+
+    class Meta:
+        model = PrincipalSignature
+        fields = [
+            'id', 'signature_image', 'uploaded_by', 'uploaded_by_username',
+            'uploaded_at', 'updated_at', 'is_active', 'notes'
+        ]
+        read_only_fields = ['uploaded_at', 'updated_at']
+
+
 class CertificateSerializer(serializers.ModelSerializer):
     student_usn = serializers.CharField(source='student.usn', read_only=True)
     event_name = serializers.CharField(source='event.name', read_only=True)
-    
+
     class Meta:
         model = Certificate
         fields = [

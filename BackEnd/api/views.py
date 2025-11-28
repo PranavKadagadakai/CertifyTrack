@@ -9,6 +9,7 @@ from django.db import transaction
 from django.utils.timezone import now, timedelta, make_aware
 from django.core.management.base import CommandError
 from django.core.files.base import ContentFile
+from django.conf import settings
 import qrcode
 import io, csv
 import openpyxl
@@ -19,7 +20,7 @@ import threading
 from .models import (
     User, Student, Mentor, ClubOrganizer, Club, Event, EventRegistration, Certificate,
     Hall, HallBooking, AICTECategory, AICTEPointTransaction, Notification, AuditLog,
-    ClubMember, ClubRole, EventAttendance, CertificateTemplate
+    ClubMember, ClubRole, EventAttendance, CertificateTemplate, PrincipalSignature
 )
 from .serializers import (
     UserSerializer, RegisterSerializer, EventSerializer,
@@ -27,10 +28,12 @@ from .serializers import (
     HallSerializer, HallBookingSerializer, AICTECategorySerializer, AICTEPointTransactionSerializer,
     NotificationSerializer, AuditLogSerializer, StudentSerializer, StudentProfileSerializer,
     MentorSerializer, MentorProfileSerializer, ClubOrganizerSerializer, ClubOrganizerProfileSerializer,
-    ClubMemberSerializer, ClubRoleSerializer, EventAttendanceSerializer, CertificateTemplateSerializer
+    ClubMemberSerializer, ClubRoleSerializer, EventAttendanceSerializer, CertificateTemplateSerializer,
+    PrincipalSignatureSerializer
 )
 from .permissions import IsClubAdmin, IsStudent, IsMentor, IsAdmin
 from .email_utils import send_verification_email, send_password_reset_email, send_account_locked_email
+from .certificate_generator import CertificateGenerator
 
 
 def log_action(user, action):
@@ -44,6 +47,7 @@ def log_action(user, action):
 
 class RegisterView(generics.CreateAPIView):
     """
+from .certificate_generator import CertificateGenerator
     User registration endpoint supporting students, mentors, and club organizers.
     Requires email verification before account activation.
     """
@@ -1013,10 +1017,10 @@ class AdminClubManagementViewSet(viewsets.ModelViewSet):
         """Assign club head (student) to club"""
         club = self.get_object()
         student_id = request.data.get('student_id')
-        
+
         if not student_id:
             return Response({'error': 'student_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         try:
             student = Student.objects.get(id=student_id)
             club.club_head = student
@@ -1025,6 +1029,38 @@ class AdminClubManagementViewSet(viewsets.ModelViewSet):
             return Response({'message': f'{student.user.get_full_name()} assigned as club head.'}, status=status.HTTP_200_OK)
         except Student.DoesNotExist:
             return Response({'error': 'Student not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=False, methods=['get'])
+    def principal_signature(self, request):
+        """Get current active principal signature"""
+        signature = PrincipalSignature.objects.filter(is_active=True).first()
+        if signature:
+            serializer = PrincipalSignatureSerializer(signature)
+            return Response(serializer.data)
+        return Response({'detail': 'No active principal signature found'}, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=False, methods=['post'])
+    def upload_principal_signature(self, request):
+        """Upload new principal signature"""
+        if not request.FILES.get('signature_image'):
+            return Response({'error': 'signature_image file is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        notes = request.data.get('notes', '')
+
+        # Create new signature record
+        principal_signature = PrincipalSignature.objects.create(
+            signature_image=request.FILES['signature_image'],
+            uploaded_by=request.user,
+            notes=notes
+        )
+
+        log_action(request.user, f"Uploaded new principal signature: {principal_signature}")
+
+        serializer = PrincipalSignatureSerializer(principal_signature)
+        return Response({
+            'message': 'Principal signature uploaded successfully',
+            'signature': serializer.data
+        }, status=status.HTTP_201_CREATED)
 
 
 class AdminMenteeAssignmentViewSet(viewsets.ViewSet):
@@ -1540,22 +1576,121 @@ class EventViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='generate-certificates')
     def generate_certificates(self, request, pk=None):
         """Generate certificates for event participants (idempotent)"""
+        from os import path
+        import hashlib
+
         event = self.get_object()
         if event.status != 'completed':
             raise ValidationError("Certificates can only be generated for completed events.")
-        attendees = EventAttendance.objects.filter(event=event, is_present=True).select_related('student')
+
+        attendees = EventAttendance.objects.filter(event=event, is_present=True).select_related('student__user')
         if not attendees.exists():
             raise ValidationError("No attendees found for this event.")
+
+        # Determine template type based on AICTE category
+        template_type = "certificate_regular"
+        if event.aicte_category:
+            template_type = "certificate_aicte"
+
+        template_dir = path.join(settings.MEDIA_ROOT, "certificates", "templates")
+        template_path = path.join(template_dir, f"{template_type}.png")
+        metadata_path = path.join(template_dir, f"{template_type}.json")
+
+        if not path.exists(template_path) or not path.exists(metadata_path):
+            raise ValidationError(f"Certificate template or metadata file not found: {template_type}")
+
+        # Get signature paths
+        faculty_signature_path = ""
+        principal_signature_path = ""
+
+        # Try to get faculty signature from club coordinator
+        if event.club and event.club.faculty_coordinator:
+            mentor = event.club.faculty_coordinator
+            if hasattr(mentor, 'signature') and mentor.signature:
+                faculty_signature_path = path.join(settings.MEDIA_ROOT, str(mentor.signature))
+            elif hasattr(mentor.user, 'signature') and mentor.user.signature:
+                faculty_signature_path = path.join(settings.MEDIA_ROOT, str(mentor.user.signature))
+
+        # Try to get principal signature from admin/principal users
+        principal_user = User.objects.filter(user_type='principal').first() or User.objects.filter(user_type='admin').first()
+        if principal_user and principal_user.signature:
+            principal_signature_path = path.join(settings.MEDIA_ROOT, str(principal_user.signature))
+
         certificate_count = 0
+        errors = []
+
         for attendance in attendees:
             student = attendance.student
-            certificate, created = Certificate.objects.get_or_create(event=event, student=student)
-            # QR code / PDF generation placeholder (implement real PDF generation in your template flow)
-            qr_data = f"Certificate ID: {certificate.id}, Event: {event.id}, Student: {student.usn}"
-            qr = qrcode.make(qr_data)
-            certificate_count += 1
+            try:
+                # Create or get certificate record
+                certificate, created = Certificate.objects.get_or_create(
+                    event=event,
+                    student=student,
+                    defaults={'issue_date': now()}
+                )
+
+                if created or not certificate.file:
+                    # Generate certificate using CertificateGenerator
+                    generator = CertificateGenerator(template_path, metadata_path)
+
+                    # Generate QR code text
+                    qr_text = f"Certificate ID: {certificate.id}, Student: {student.usn}, Event: {event.id}"
+
+                    # Generate certificate PDF
+                    pdf_buffer = generator.generate_certificate(
+                        template_type=template_type,
+                        student_name=student.user.get_full_name() or student.user.username,
+                        event_name=event.name,
+                        club_name=event.club.name if event.club else "",
+                        date=event.event_date.strftime("%d %B %Y"),
+                        usn=getattr(student, 'usn', 'N/A'),
+                        points=event.points_awarded if event.aicte_category else 0,
+                        qr_text=qr_text,
+                        faculty_signature_path=faculty_signature_path,
+                        principal_signature_path=principal_signature_path,
+                    )
+
+                    # Save PDF to certificate record with proper naming
+                    file_name = f"certificate_{certificate.id}.pdf"
+                    certificate.file.save(file_name, ContentFile(pdf_buffer.getvalue()), save=True)
+
+                    # Generate hash for verification
+                    pdf_buffer.seek(0)
+                    file_hash = hashlib.sha256(pdf_buffer.read()).hexdigest()
+                    certificate.file_hash = file_hash
+                    certificate.save()
+
+                    certificate_count += 1
+
+                    # Create notifications for students
+                    Notification.objects.create(
+                        user=student.user,
+                        title="Certificate Generated",
+                        message=f"Your certificate for '{event.name}' has been generated successfully.",
+                        notification_type="certificate_generated",
+                        event=event,
+                        certificate=certificate
+                    )
+
+                else:
+                    certificate_count += 1  # Already exists, still count it
+
+            except Exception as e:
+                errors.append(f"Student {student.user.username}: {str(e)}")
+                continue
+
         log_action(request.user, f"Generated {certificate_count} certificates for event: {event.name}")
-        return Response({'message': f'Successfully generated {certificate_count} certificates.', 'certificate_count': certificate_count})
+
+        response_data = {
+            'message': f'Successfully generated {certificate_count} certificates for event "{event.name}".',
+            'certificate_count': certificate_count
+        }
+
+        if errors:
+            response_data['errors'] = errors
+            response_data['warning'] = f"{len(errors)} certificates failed to generate."
+
+        return Response(response_data)
 
 
 class EventAttendanceViewSet(viewsets.ModelViewSet):

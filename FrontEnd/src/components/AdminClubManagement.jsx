@@ -11,6 +11,8 @@ const AdminClubManagement = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [signatureUploading, setSignatureUploading] = useState(false);
+  const [currentSignature, setCurrentSignature] = useState(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -19,8 +21,56 @@ const AdminClubManagement = () => {
     established_date: "",
   });
 
+  const handlePrincipalSignatureUpload = async (e) => {
+    e.preventDefault();
+    const signatureFile = e.target.signature.files[0];
+    if (!signatureFile) {
+      setError("Please select a signature file");
+      return;
+    }
+
+    setSignatureUploading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const formData = new FormData();
+      formData.append("signature_image", signatureFile);
+      formData.append("notes", "Uploaded via admin panel");
+
+      const response = await api.post(
+        "/admin/clubs/upload_principal_signature/",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      setSuccess("Principal signature uploaded successfully!");
+      setCurrentSignature(response.data.signature);
+    } catch (err) {
+      setError("Failed to upload principal signature");
+    } finally {
+      setSignatureUploading(false);
+    }
+  };
+
+  const fetchCurrentSignature = async () => {
+    try {
+      const response = await api.get("/admin/clubs/principal_signature/");
+      if (response.data) {
+        setCurrentSignature(response.data);
+      }
+    } catch (err) {
+      // No signature found, that's ok
+    }
+  };
+
   useEffect(() => {
     fetchData();
+    fetchCurrentSignature();
   }, []);
 
   const fetchData = async () => {
@@ -117,6 +167,65 @@ const AdminClubManagement = () => {
 
   return (
     <div className="space-y-6">
+      {/* Principal Signature Section */}
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h2 className="text-xl font-bold text-gray-900 mb-4">
+          Principal Signature Management
+        </h2>
+        <div className="space-y-4">
+          {currentSignature && (
+            <div className="flex items-center space-x-4 p-4 bg-green-50 rounded-lg">
+              <div>
+                <p className="text-sm font-medium text-gray-700">
+                  Current Signature
+                </p>
+                <p className="text-sm text-gray-600">
+                  Uploaded on:{" "}
+                  {new Date(currentSignature.uploaded_at).toLocaleDateString()}
+                </p>
+                {currentSignature.notes && (
+                  <p className="text-sm text-gray-600">
+                    Notes: {currentSignature.notes}
+                  </p>
+                )}
+              </div>
+              <div className="ml-auto">
+                <span className="px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full">
+                  Active
+                </span>
+              </div>
+            </div>
+          )}
+
+          <form onSubmit={handlePrincipalSignatureUpload} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Upload Principal Signature
+              </label>
+              <input
+                type="file"
+                name="signature"
+                accept="image/*"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Accepted formats: PNG, JPG, JPEG. This signature will be used on
+                all certificates.
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              disabled={signatureUploading}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {signatureUploading ? "Uploading..." : "Upload Signature"}
+            </button>
+          </form>
+        </div>
+      </div>
+
       {/* Alerts */}
       {error && (
         <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded">
@@ -288,7 +397,6 @@ const AdminClubManagement = () => {
                   Assign Organizer
                 </label>
                 <select
-                  // value={club.club_head || ""}
                   defaultValue=""
                   onChange={(e) => {
                     if (e.target.value) {
@@ -301,7 +409,7 @@ const AdminClubManagement = () => {
                   <option value="">Select Organizer</option>
                   {organizers.map((org) => (
                     <option key={org.id} value={org.id}>
-                      {org.user_details?.first_name}
+                      {org.user_details?.first_name}{" "}
                       {org.user_details?.last_name}
                     </option>
                   ))}

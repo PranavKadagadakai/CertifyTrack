@@ -187,6 +187,33 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
     }
   };
 
+  const handleGenerateCertificates = async (eventId) => {
+    if (
+      !window.confirm(
+        "This will generate certificates for all attendees. Continue?"
+      )
+    )
+      return;
+
+    try {
+      setSuccess("Generating certificates...");
+      const res = await api.post(`/events/${eventId}/generate-certificates/`);
+
+      const message =
+        res.data.message ||
+        `Successfully generated ${res.data.certificate_count} certificates.`;
+      setSuccess(message);
+
+      if (res.data.errors && res.data.errors.length > 0) {
+        console.error("Certificate generation errors:", res.data.errors);
+        setError(`${res.data.warning}\n\nCheck console for details.`);
+      }
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.error || "Failed to generate certificates");
+    }
+  };
+
   // NEW: detect complete → open attendance upload modal
   const handleStatusChange = async (eventId, newStatus) => {
     try {
@@ -534,6 +561,26 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
                         >
                           Complete
                         </button>
+                      )}
+
+                      {event.status === "completed" && (
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => handleGenerateCertificates(event.id)}
+                            className="px-3 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700"
+                          >
+                            🎓 Certificates
+                          </button>
+                          <button
+                            onClick={() => {
+                              setAttendanceEventId(event.id);
+                              setShowAttendanceUpload(true);
+                            }}
+                            className="px-3 py-1 bg-blue-600 text-white rounded text-xs"
+                          >
+                            Attendance
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>

@@ -8,13 +8,17 @@ import bellExclamationIcon from "../assets/bell-exclamation.svg";
 const Navbar = () => {
   const { user, logout } = useAuth();
   const [unreadNotifications, setUnreadNotifications] = useState(0);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isDashboardDropdownOpen, setIsDashboardDropdownOpen] = useState(false);
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [userClubRoles, setUserClubRoles] = useState([]);
   const navigate = useNavigate();
 
-  // Fetch unread notifications count
+  // Fetch unread notifications count and user club roles
   useEffect(() => {
-    const fetchUnreadNotifications = async () => {
+    const fetchData = async () => {
       if (!user) return;
+
+      // Fetch notifications
       try {
         const response = await api.get("/notifications/");
         const notifications = Array.isArray(response.data) ? response.data : [];
@@ -23,20 +27,77 @@ const Navbar = () => {
       } catch (error) {
         console.error("Failed to fetch notifications count:", error);
       }
+
+      // Fetch clubs to check user's club roles based on their user type
+      try {
+        const clubsResponse = await api.get("/clubs/");
+        const clubs = Array.isArray(clubsResponse.data)
+          ? clubsResponse.data
+          : clubsResponse.data.results || [];
+
+        const userRoles = [];
+        const userId = parseInt(user?.id || user?.user?.id);
+        const userType = user?.user?.user_type;
+
+        // Only check for roles based on user type
+        // Students can only access club head dashboard if they are club head
+        if (userType === "student") {
+          clubs.forEach((club) => {
+            if (parseInt(club.club_head) === userId) {
+              userRoles.push({ type: "club_head", club: club });
+            }
+          });
+        }
+        // Mentors can only access club coordinator dashboard if they are coordinator
+        else if (userType === "mentor") {
+          clubs.forEach((club) => {
+            if (parseInt(club.faculty_coordinator) === userId) {
+              userRoles.push({ type: "coordinator", club: club });
+            }
+          });
+        }
+        // Other user types don't get club dashboard access
+        setUserClubRoles(userRoles);
+      } catch (error) {
+        console.error("Failed to fetch user club roles:", error);
+        setUserClubRoles([]);
+      }
     };
 
-    fetchUnreadNotifications();
+    fetchData();
   }, [user]);
 
   const handleBellClick = () => {
     navigate("/notifications");
   };
 
+  const getDashboardLink = () => {
+    if (user?.user_type === "admin") {
+      return "/admin-dashboard";
+    } else if (user?.user_type === "mentor") {
+      return "/mentor-dashboard";
+    } else if (user?.user_type === "student") {
+      return "/dashboard";
+    }
+    return "/dashboard";
+  };
+
+  const getDashboardText = () => {
+    if (user?.user_type === "admin") {
+      return "Admin Dashboard";
+    } else if (user?.user_type === "mentor") {
+      return "Mentor Dashboard";
+    } else if (user?.user_type === "student") {
+      return "Student Dashboard";
+    }
+    return "Dashboard";
+  };
+
   return (
     <nav className="bg-gray-800 text-white p-4">
       <div className="container mx-auto flex justify-between items-center">
         {user ? (
-          <Link to="/dashboard" className="text-lg font-bold">
+          <Link to={getDashboardLink()} className="text-lg font-bold">
             CertifyTrack
           </Link>
         ) : (
@@ -68,10 +129,51 @@ const Navbar = () => {
                 </button>
               </div>
 
+              {/* Dashboard Links */}
+              {userClubRoles.length > 0 && (
+                <div className="relative">
+                  <button
+                    onClick={() =>
+                      setIsDashboardDropdownOpen(!isDashboardDropdownOpen)
+                    }
+                    className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+                  >
+                    Club Dashboards
+                  </button>
+                  {isDashboardDropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg py-1 z-50">
+                      {userClubRoles.map((role, index) => (
+                        <Link
+                          key={index}
+                          to={
+                            role.type === "club_head"
+                              ? "/club-head-dashboard"
+                              : "/club-coordinator-dashboard"
+                          }
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => setIsDashboardDropdownOpen(false)}
+                        >
+                          {role.type === "club_head"
+                            ? "Club Head Dashboard"
+                            : "Club Coordinator Dashboard"}
+                          {role.club && (
+                            <span className="text-xs block text-gray-500">
+                              ({role.club.name})
+                            </span>
+                          )}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Profile Image with Dropdown */}
               <div className="relative">
                 <button
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  onClick={() =>
+                    setIsProfileDropdownOpen(!isProfileDropdownOpen)
+                  }
                   className="flex items-center space-x-2 p-1 hover:bg-gray-700 rounded-full transition-colors"
                 >
                   <img
@@ -85,12 +187,12 @@ const Navbar = () => {
                 </button>
 
                 {/* Dropdown Menu */}
-                {isDropdownOpen && (
+                {isProfileDropdownOpen && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
                     <Link
                       to="/profile"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setIsDropdownOpen(false)}
+                      onClick={() => setIsProfileDropdownOpen(false)}
                     >
                       <div className="flex items-center">
                         <svg
@@ -112,7 +214,7 @@ const Navbar = () => {
                     </Link>
                     <button
                       onClick={() => {
-                        setIsDropdownOpen(false);
+                        setIsProfileDropdownOpen(false);
                         logout();
                       }}
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"

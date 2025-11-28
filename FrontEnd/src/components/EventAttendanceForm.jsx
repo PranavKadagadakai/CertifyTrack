@@ -8,6 +8,8 @@ const EventAttendanceForm = ({ eventId }) => {
   const [file, setFile] = useState(null);
   const [attendancePreview, setAttendancePreview] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [generatingCertificates, setGeneratingCertificates] = useState(false);
+  const [canGenerateCertificates, setCanGenerateCertificates] = useState(false);
 
   useEffect(() => {
     // Load club events only if eventId not provided (dropdown mode)
@@ -110,6 +112,7 @@ const EventAttendanceForm = ({ eventId }) => {
       );
 
       alert(res.data.message || "Attendance uploaded successfully!");
+      setCanGenerateCertificates(true);
 
       await loadParticipants(selectedEvent);
 
@@ -120,6 +123,37 @@ const EventAttendanceForm = ({ eventId }) => {
       alert(err.response?.data?.error || "Failed to upload attendance");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const generateCertificates = async () => {
+    if (!selectedEvent) {
+      alert("Select an event first");
+      return;
+    }
+
+    try {
+      setGeneratingCertificates(true);
+      const res = await api.post(
+        `/events/${selectedEvent}/generate-certificates/`
+      );
+
+      const message =
+        res.data.message ||
+        `Successfully generated ${res.data.certificate_count} certificates.`;
+      alert(message);
+
+      if (res.data.errors && res.data.errors.length > 0) {
+        console.error("Certificate generation errors:", res.data.errors);
+        alert(`${res.data.warning}\n\nCheck console for details.`);
+      }
+
+      // Allow regenerating certificates even after successful generation
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.error || "Failed to generate certificates");
+    } finally {
+      setGeneratingCertificates(false);
     }
   };
 
@@ -222,12 +256,27 @@ const EventAttendanceForm = ({ eventId }) => {
             </div>
           )}
 
-          <button
-            onClick={submitAttendance}
-            className="px-4 py-2 bg-blue-600 text-white rounded"
-          >
-            Upload & Process Attendance
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={submitAttendance}
+              disabled={loading}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded disabled:opacity-50"
+            >
+              {loading ? "Uploading..." : "Upload & Process Attendance"}
+            </button>
+
+            {canGenerateCertificates && (
+              <button
+                onClick={generateCertificates}
+                disabled={generatingCertificates}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded disabled:opacity-50"
+              >
+                {generatingCertificates
+                  ? "Generating..."
+                  : "🎓 Generate Certificates"}
+              </button>
+            )}
+          </div>
         </>
       )}
     </div>
