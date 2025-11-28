@@ -94,16 +94,17 @@ class StudentProfileSerializer(serializers.ModelSerializer):
 class MentorProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer()
     profile_photo = serializers.ImageField(required=False, allow_null=True, allow_empty_file=True)
+    signature = serializers.ImageField(required=False, allow_null=True, allow_empty_file=True)
 
     class Meta:
         model = Mentor
         fields = [
             'id', 'user', 'employee_id', 'department', 'designation',
             'phone_number', 'date_of_birth', 'address', 'profile_photo',
-            'qualifications', 'bio', 'profile_completed', 'profile_completed_at'
+            'qualifications', 'bio', 'signature', 'profile_completed', 'profile_completed_at'
         ]
         read_only_fields = ['profile_completed_at']
-        
+
     def to_internal_value(self, data):
         """
         Allow username / first_name / last_name to be passed at root level.
