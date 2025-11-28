@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import api from "../api";
 import { useAuth } from "../context/AuthContext";
+import ClubCoordinatorSignature from "../components/ClubCoordinatorSignature";
 
 const ClubCoordinatorDashboard = () => {
   const [clubs, setClubs] = useState([]);
@@ -455,6 +456,9 @@ const ClubCoordinatorDashboard = () => {
           </div>
         )}
       </div>
+
+      {/* Digital Signature */}
+      <ClubCoordinatorSignature />
     </div>
   );
 };
