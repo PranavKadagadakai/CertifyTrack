@@ -33,6 +33,7 @@ class User(AbstractUser):
         ('mentor', 'Mentor'),
         ('club_organizer', 'Club Organizer'),
         ('admin', 'Admin'),
+        ('principal', 'Principal'),
     )
     user_type = models.CharField(max_length=20, choices=USER_TYPE_CHOICES, default='student')
     is_email_verified = models.BooleanField(default=False)
@@ -42,6 +43,7 @@ class User(AbstractUser):
     password_reset_expires = models.DateTimeField(blank=True, null=True)
     failed_login_attempts = models.IntegerField(default=0)
     account_locked_until = models.DateTimeField(blank=True, null=True)
+    signature = models.ImageField(upload_to='signatures/', blank=True, null=True, help_text="Digital signature for certificate signing (JPEG/PNG)")
 
     def __str__(self):
         return f"{self.username} ({self.user_type})"
@@ -81,6 +83,7 @@ class Mentor(models.Model):
     profile_photo = models.ImageField(upload_to='profile_photos/mentors/', blank=True, null=True)
     qualifications = models.TextField(blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
+    signature = models.ImageField(upload_to='signatures/mentors/', blank=True, null=True, help_text="Digital signature for certificate signing (JPEG/PNG)")
     profile_completed = models.BooleanField(default=False)
     profile_completed_at = models.DateTimeField(blank=True, null=True)
 
@@ -353,6 +356,33 @@ class CertificateTemplate(models.Model):
 # ============================================
 # CERTIFICATE MANAGEMENT MODELS
 # ============================================
+class PrincipalSignature(models.Model):
+    """Global principal signature for certificates across all clubs."""
+    signature_image = models.ImageField(
+        upload_to='signatures/principal/',
+        help_text="Principal's digital signature for certificates (JPEG/PNG)"
+    )
+    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True, null=True, help_text="Notes about the signature upload")
+
+    class Meta:
+        verbose_name = "Principal Signature"
+        verbose_name_plural = "Principal Signatures"
+        ordering = ['-uploaded_at']
+
+    def __str__(self):
+        return f"Principal Signature (uploaded {self.uploaded_at.date()})"
+
+    def save(self, *args, **kwargs):
+        # Ensure only one active signature at a time
+        if self.is_active:
+            PrincipalSignature.objects.filter(is_active=True).exclude(pk=self.pk).update(is_active=False)
+        super().save(*args, **kwargs)
+
+
 class Certificate(models.Model):
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='certificates')
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='certificates')

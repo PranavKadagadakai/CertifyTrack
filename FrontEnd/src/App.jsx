@@ -11,6 +11,8 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import StudentDashboard from "./pages/StudentDashboard";
 import MentorDashboard from "./pages/MentorDashboard";
 import ClubDashboard from "./pages/ClubDashboard";
+import ClubHeadDashboard from "./pages/ClubHeadDashboard";
+import ClubCoordinatorDashboard from "./pages/ClubCoordinatorDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import ProfilePage from "./pages/ProfilePage";
 import NotificationsPage from "./pages/NotificationsPage";
@@ -23,9 +25,9 @@ const App = () => {
   const PrivateRoute = ({ children, userType }) => {
     if (!user) return <Navigate to="/login" />;
     // backend uses user.user_type (student, mentor, club_organizer, admin)
-    // console.log(user);
-    if (userType && user.user_type !== userType)
-      return <Navigate to="/dashboard" />;
+    // if (userType && user.user_type !== userType) {
+    //   return <Navigate to="/dashboard" />;
+    // }
     return children;
   };
 
@@ -62,6 +64,22 @@ const App = () => {
           element={
             <PrivateRoute>
               <NotificationsPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/club-head-dashboard"
+          element={
+            <PrivateRoute userType="student">
+              <ClubHeadDashboard />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/club-coordinator-dashboard"
+          element={
+            <PrivateRoute userType="mentor">
+              <ClubCoordinatorDashboard />
             </PrivateRoute>
           }
         />
