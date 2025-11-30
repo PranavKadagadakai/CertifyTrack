@@ -1,9 +1,134 @@
 import uuid
 import os
+import re
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils.timezone import now
 from django.core.exceptions import ValidationError
+
+
+# ============================================
+# VALIDATION FUNCTIONS
+# ============================================
+
+# Department to branch code mapping
+DEPARTMENT_BRANCH_MAPPING = {
+    'CSE': 'CS',
+    'AIML': 'AI',
+    'ISE': 'IS',
+    'ECE': 'EC',
+    'EEE': 'EE',
+    'ME': 'ME',
+    'Civil': 'CV',
+    'Aero': 'AE',
+    'Arch': 'AR'
+}
+
+# Reverse mapping for validation
+BRANCH_DEPARTMENT_MAPPING = {v: k for k, v in DEPARTMENT_BRANCH_MAPPING.items()}
+
+
+def validate_usn_format(usn, department):
+    """
+    Validate USN format: 2GI22{BRANCH}001 or 2GI22{BRANCH}L001 for lateral entry
+    Returns (is_valid, error_message)
+    """
+    if not usn:
+        return False, "USN is required"
+
+    # Pattern: starts with any single digit (region), next 2 any chars (college),
+    # then 2 chars for branch, optionally L for lateral, then 3 digits
+    pattern = r'^\d[A-Z]\d{2}([A-Z]{2})(L?)(\d{3})$'
+    match = re.match(pattern, usn.strip().upper())
+
+    if not match:
+        return False, "Invalid USN format. Expected format: 2GI22XX001 or 2GI22XXL001 where XX is branch code"
+
+    branch_code = match.group(1)
+    has_lateral = match.group(2)
+
+    # Check if branch code matches department
+    expected_branch = DEPARTMENT_BRANCH_MAPPING.get(department)
+    if not expected_branch:
+        return False, f"Unknown department: {department}"
+
+    if branch_code != expected_branch:
+        return False, f"USN branch code '{branch_code}' does not match selected department '{department}' (expected: {expected_branch})"
+
+    return True, None
+
+
+def validate_employee_id_format(employee_id, department):
+    """
+    Validate Employee ID format: {BRANCH}{NUMBER} where BRANCH is 2 chars, NUMBER is 3 digits
+    Returns (is_valid, error_message)
+    """
+    if not employee_id:
+        return False, "Employee ID is required"
+
+    # Pattern: 2 chars for branch + 3 digits for number
+    pattern = r'^([A-Z]{2})(\d{3})$'
+    match = re.match(pattern, employee_id.strip().upper())
+
+    if not match:
+        return False, "Invalid Employee ID format. Expected format: XXYYY where XX is branch code and YYY is number"
+
+    branch_code = match.group(1)
+
+    # Check if branch code matches department
+    expected_branch = DEPARTMENT_BRANCH_MAPPING.get(department)
+    if not expected_branch:
+        return False, f"Unknown department: {department}"
+
+    if branch_code != expected_branch:
+        return False, f"Employee ID branch code '{branch_code}' does not match selected department '{department}' (expected: {expected_branch})"
+
+    return True, None
+
+
+def validate_email_domain(email, user_type):
+    """
+    Validate email domain based on user type
+    Students: @students.git.edu
+    Others: @git.edu
+    Returns (is_valid, error_message)
+    """
+    if not email:
+        return False, "Email is required"
+
+    email = email.lower().strip()
+
+    if user_type == 'student':
+        if not email.endswith('@students.git.edu'):
+            return False, "Students must use @students.git.edu email domain"
+    else:
+        if not email.endswith('@git.edu'):
+            return False, "Faculty/Staff must use @git.edu email domain"
+
+    return True, None
+
+
+def get_branch_from_usn(usn):
+    """
+    Extract branch code from USN
+    Returns branch code or None if invalid format
+    """
+    if not usn:
+        return None
+
+    pattern = r'^\d[A-Z]\d{2}([A-Z]{2})(L?)(\d{3})$'
+    match = re.match(pattern, usn.strip().upper())
+
+    if match:
+        return match.group(1)
+    return None
+
+
+def get_department_from_branch(branch_code):
+    """
+    Get department name from branch code
+    """
+    return BRANCH_DEPARTMENT_MAPPING.get(branch_code)
 
 
 def certificate_file_path(instance, filename):

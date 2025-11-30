@@ -9,7 +9,9 @@ from .models import (
     User, Student, Mentor, ClubOrganizer, Club, Event, EventRegistration, Certificate,
     Hall, HallBooking, AICTECategory, AICTEPointTransaction,
     Notification, AuditLog, ClubMember, ClubRole, EventAttendance,
-    CertificateTemplate, UserNotificationPreferences, PrincipalSignature
+    CertificateTemplate, UserNotificationPreferences, PrincipalSignature,
+    validate_usn_format, validate_employee_id_format, validate_email_domain,
+    DEPARTMENT_BRANCH_MAPPING
 )
 from .email_utils import send_verification_email, send_password_reset_email
 
@@ -64,6 +66,29 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             ret['user'] = user_data
 
         return ret
+
+    def validate(self, data):
+        """
+        Validate USN format and branch consistency for profile updates
+        """
+        request = self.context.get("request")
+        user_data = data.get("user", {})
+
+        email = user_data.get("email") or (request.data.get("user", {}).get("email") if request and request.data else None)
+        if email:
+            is_valid, error_msg = validate_email_domain(email, 'student')
+            if not is_valid:
+                raise serializers.ValidationError({"email": error_msg})
+
+        usn = data.get("usn") or (request.data.get("usn") if request else None)
+        department = data.get("department") or (request.data.get("department") if request else None)
+
+        if usn and department:
+            is_valid, error_msg = validate_usn_format(usn, department)
+            if not is_valid:
+                raise serializers.ValidationError({"usn": error_msg})
+
+        return data
 
     def update(self, instance, validated_data):
         # Extract nested user updates from sourced fields
@@ -127,6 +152,29 @@ class MentorProfileSerializer(serializers.ModelSerializer):
             ret['user'] = user_data
 
         return ret
+
+    def validate(self, data):
+        """
+        Validate Employee ID format and branch consistency for profile updates
+        """
+        request = self.context.get("request")
+        user_data = data.get("user", {})
+
+        email = user_data.get("email") or (request.data.get("user", {}).get("email") if request and request.data else None)
+        if email:
+            is_valid, error_msg = validate_email_domain(email, 'mentor')
+            if not is_valid:
+                raise serializers.ValidationError({"email": error_msg})
+
+        employee_id = data.get("employee_id") or (request.data.get("employee_id") if request else None)
+        department = data.get("department") or (request.data.get("department") if request else None)
+
+        if employee_id and department:
+            is_valid, error_msg = validate_employee_id_format(employee_id, department)
+            if not is_valid:
+                raise serializers.ValidationError({"employee_id": error_msg})
+
+        return data
 
     def update(self, instance, validated_data):
         # Extract nested user updates from sourced fields
@@ -237,39 +285,59 @@ class RegisterSerializer(serializers.ModelSerializer):
     def validate(self, data):
         if data.get('password') != data.get('password_confirm'):
             raise serializers.ValidationError({"password": "Passwords do not match."})
-        
+
         request = self.context.get("request")
         user_type = data.get("user_type")
-        
+
+        # Validate email domain
+        email = data.get("email")
+        if email:
+            is_valid, error_msg = validate_email_domain(email, user_type)
+            if not is_valid:
+                raise serializers.ValidationError({"email": error_msg})
+
         if user_type == "student":
             usn = data.get("usn") or (request.data.get("usn") if request else None)
             dept = data.get("department") or (request.data.get("department") if request else None)
             sem = data.get("semester") or (request.data.get("semester") if request else None)
-            
+
             if not usn:
                 raise serializers.ValidationError({"usn": "USN is required for student registration."})
-            
+
+            # Validate USN format and branch consistency
+            if dept:
+                is_valid, error_msg = validate_usn_format(usn, dept)
+                if not is_valid:
+                    raise serializers.ValidationError({"usn": error_msg})
+
             if Student.objects.filter(usn=usn).exists():
                 raise serializers.ValidationError({"usn": "This USN is already registered."})
-            
+
             if sem and (int(sem) < 1 or int(sem) > 8):
                 raise serializers.ValidationError({"semester": "Semester must be between 1 and 8."})
-        
+
         elif user_type == "mentor":
             emp_id = data.get("employee_id") or (request.data.get("employee_id") if request else None)
+            dept = data.get("department") or (request.data.get("department") if request else None)
             desig = data.get("designation") or (request.data.get("designation") if request else None)
-            
+
             if not emp_id:
                 raise serializers.ValidationError({"employee_id": "Employee ID is required for mentor registration."})
-            
+
+            # Validate Employee ID format and branch consistency
+            if dept:
+                is_valid, error_msg = validate_employee_id_format(emp_id, dept)
+                if not is_valid:
+                    raise serializers.ValidationError({"employee_id": error_msg})
+
             if Mentor.objects.filter(employee_id=emp_id).exists():
                 raise serializers.ValidationError({"employee_id": "This Employee ID is already registered."})
-            
+
             if not desig:
                 raise serializers.ValidationError({"designation": "Designation is required for mentor registration."})
-        
+
         # club_organizer doesn't require additional fields - they can be filled in profile completion
-        
+
         return data
     
     def create(self, validated_data):
