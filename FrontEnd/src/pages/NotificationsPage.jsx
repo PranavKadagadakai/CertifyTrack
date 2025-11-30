@@ -28,7 +28,7 @@ const NotificationsPage = () => {
 
   const markAllRead = async () => {
     try {
-      await api.post("/notifications/mark-all-read/");
+      await api.post("/notifications/mark_all_read/");
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
     } catch (error) {
       console.error("Failed to mark notifications as read:", error);
@@ -37,7 +37,7 @@ const NotificationsPage = () => {
 
   const markSingleRead = async (notificationId) => {
     try {
-      await api.post(`/notifications/${notificationId}/mark-read/`);
+      await api.post(`/notifications/${notificationId}/mark_read/`);
       setNotifications((prev) =>
         prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
       );

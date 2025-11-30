@@ -1678,8 +1678,7 @@ class EventViewSet(viewsets.ModelViewSet):
                     title="Certificate Generated",
                     message=f"Your certificate for '{event.name}' has been generated successfully.",
                     notification_type="certificate_generated",
-                    event=event,
-                    certificate=certificate
+                    event=event
                 )
 
             except Exception as e:
