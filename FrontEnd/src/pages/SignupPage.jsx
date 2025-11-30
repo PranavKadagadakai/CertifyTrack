@@ -9,7 +9,8 @@ const SignupPage = () => {
     email: "",
     password: "",
     password_confirm: "",
-    fullName: "",
+    firstName: "",
+    lastName: "",
     role: "",
     usn: "",
     department: "",
@@ -22,7 +23,17 @@ const SignupPage = () => {
   const [passwordError, setPasswordError] = useState("");
   const { register } = useAuth();
 
-  const departments = ["CSE", "ECE", "ISE", "ME", "EEE", "Civil", "AIML", "DS"];
+  const departments = [
+    "CSE",
+    "AIML",
+    "ISE",
+    "ECE",
+    "EEE",
+    "ME",
+    "Civil",
+    "Aero",
+    "Arch",
+  ];
   const roles = ["student", "mentor", "club_organizer"];
 
   const validatePassword = (pwd) => {
@@ -85,7 +96,8 @@ const SignupPage = () => {
         password: formData.password,
         password_confirm: formData.password_confirm,
         user_type: formData.role,
-        first_name: formData.fullName,
+        first_name: formData.firstName,
+        last_name: formData.lastName,
         ...(formData.role === "student" && {
           usn: formData.usn,
           department: formData.department,
@@ -124,8 +136,8 @@ const SignupPage = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-[80vh] bg-gray-100">
-      <div className="w-full max-w-md p-8 space-y-4 bg-white rounded-lg shadow-md">
+    <div className="flex items-center justify-center min-h-[90vh] bg-gray-100">
+      <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-lg shadow-md">
         <h2 className="text-2xl font-bold text-center">Create an Account</h2>
         {error && <p className="text-red-500 text-center text-sm">{error}</p>}
         {success && <p className="text-green-500 text-center">{success}</p>}
@@ -141,16 +153,29 @@ const SignupPage = () => {
               className="w-full px-3 py-2 mt-1 border rounded-md"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium">Full Name</label>
-            <input
-              type="text"
-              name="fullName"
-              value={formData.fullName}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 mt-1 border rounded-md"
-            />
+          <div className="grid grid-cols-2 gap-1">
+            <div>
+              <label className="block text-sm font-medium">First Name</label>
+              <input
+                type="text"
+                name="firstName"
+                value={formData.firstName}
+                onChange={handleChange}
+                required
+                className="w-45 px-1 py-2 mt-1 border rounded-md"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Last Name</label>
+              <input
+                type="text"
+                name="lastName"
+                value={formData.lastName}
+                onChange={handleChange}
+                required
+                className="w-45 px-1 py-2 mt-1 border rounded-md"
+              />
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium">Email</label>
@@ -230,68 +255,78 @@ const SignupPage = () => {
                   className="w-full px-3 py-2 mt-1 border rounded-md"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium">Department</label>
-                <select
-                  name="department"
-                  value={formData.department}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 mt-1 border rounded-md"
-                >
-                  <option value="">Select Department</option>
-                  {departments.map((dep) => (
-                    <option key={dep} value={dep}>
-                      {dep}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium">Semester</label>
-                <input
-                  type="number"
-                  name="semester"
-                  value={formData.semester}
-                  onChange={handleChange}
-                  min={1}
-                  max={8}
-                  required
-                  className="w-full px-3 py-2 mt-1 border rounded-md"
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm font-medium">
+                    Department
+                  </label>
+                  <select
+                    name="department"
+                    value={formData.department}
+                    onChange={handleChange}
+                    required
+                    className="w-45 px-1 py-3 mt-1 border rounded-md"
+                  >
+                    <option value="">Select Department</option>
+                    {departments.map((dep) => (
+                      <option key={dep} value={dep}>
+                        {dep}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">Semester</label>
+                  <input
+                    type="number"
+                    name="semester"
+                    value={formData.semester}
+                    onChange={handleChange}
+                    min={1}
+                    max={8}
+                    required
+                    className="w-45 px-1 py-2 mt-1 border rounded-md"
+                  />
+                </div>
               </div>
             </>
           )}
 
           {formData.role === "mentor" && (
             <>
-              <div>
-                <label className="block text-sm font-medium">Employee ID</label>
-                <input
-                  type="text"
-                  name="employee_id"
-                  value={formData.employee_id}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 mt-1 border rounded-md"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium">Department</label>
-                <select
-                  name="department"
-                  value={formData.department}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 mt-1 border rounded-md"
-                >
-                  <option value="">Select Department</option>
-                  {departments.map((dep) => (
-                    <option key={dep} value={dep}>
-                      {dep}
-                    </option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm font-medium">
+                    Employee ID
+                  </label>
+                  <input
+                    type="text"
+                    name="employee_id"
+                    value={formData.employee_id}
+                    onChange={handleChange}
+                    required
+                    className="w-45 px-3 py-2 mt-1 border rounded-md"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">
+                    Department
+                  </label>
+                  <select
+                    name="department"
+                    value={formData.department}
+                    onChange={handleChange}
+                    required
+                    className="w-45 px-3 py-3 mt-1 border rounded-md"
+                  >
+                    <option value="">Select Department</option>
+                    {departments.map((dep) => (
+                      <option key={dep} value={dep}>
+                        {dep}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium">Designation</label>
