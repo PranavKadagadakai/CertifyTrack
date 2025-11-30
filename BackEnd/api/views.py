@@ -1644,7 +1644,7 @@ class EventViewSet(viewsets.ModelViewSet):
                 generator = CertificateGenerator(template_path, metadata_path)
 
                 # Generate QR code text
-                qr_text = f"Certificate ID: {certificate.id}, Student: {student.usn}, Event: {event.id}"
+                qr_text = f"Certificate ID: {certificate.id}, Student: {student.usn}, Event: {event.name}"
 
                 # Generate certificate PDF
                 pdf_buffer = generator.generate_certificate(
