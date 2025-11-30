@@ -80,32 +80,55 @@ class CertificateGenerator:
 
         # Background template PNG
         template_png = self.template_path
-        c.drawImage(template_png, 0, 0, width=A4[1], height=A4[0])  # A4 landscape
 
-        # Draw text placeholders
+        # Calculate scaling factors between image dimensions and PDF canvas
+        image_width = float(metadata["canvas"]["width"])  # 2000
+        image_height = float(metadata["canvas"]["height"])  # 1414
+        page_width, page_height = landscape(A4)  # (841.89, 595.28)
+
+        scale_x = page_width / image_width
+        scale_y = page_height / image_height
+
+        # Scale image to fit
+        c.drawImage(template_png, 0, 0, width=page_width, height=page_height)
+
+        # Function to scale metadata coordinates
+        def scale_meta(meta_dict):
+            scaled = meta_dict.copy()
+            if "x" in scaled:
+                scaled["x"] *= scale_x
+            if "y" in scaled:
+                scaled["y"] *= scale_y
+            if "width" in scaled:
+                scaled["width"] *= scale_x
+            if "height" in scaled:
+                scaled["height"] *= scale_y
+            return scaled
+
+        # Draw text placeholders (scaled)
         placeholders = metadata["placeholders"]
 
-        self.draw_text(c, student_name, placeholders["student_name"])
-        self.draw_text(c, event_name, placeholders["event_name"])
-        self.draw_text(c, club_name, placeholders["club_name"])
-        self.draw_text(c, date, placeholders["date"])
-        self.draw_text(c, usn, placeholders["usn"])
+        self.draw_text(c, student_name, scale_meta(placeholders["student_name"]))
+        self.draw_text(c, event_name, scale_meta(placeholders["event_name"]))
+        self.draw_text(c, club_name, scale_meta(placeholders["club_name"]))
+        self.draw_text(c, date, scale_meta(placeholders["date"]))
+        self.draw_text(c, usn, scale_meta(placeholders["usn"]))
 
-        # AICTE points field only for AICTE template
+        # AICTE points field only for AICTE template (scaled)
         if template_type == "certificate_aicte":
-            self.draw_text(c, str(points), placeholders["points"])
+            self.draw_text(c, str(points), scale_meta(placeholders["points"]))
 
         # Generate QR Code (in-memory)
         qr_image = self.generate_qr_code(qr_text)
         qr_path = os.path.join(self.template_dir, "qr_temp.png")
         qr_image.save(qr_path)
 
-        # Draw QR code
-        self.draw_image(c, qr_path, metadata["qrcode"])
+        # Draw QR code (scaled)
+        self.draw_image(c, qr_path, scale_meta(metadata["qrcode"]))
 
-        # Draw signatures
-        self.draw_image(c, faculty_signature_path, metadata["signatures"]["faculty_coordinator"])
-        self.draw_image(c, principal_signature_path, metadata["signatures"]["principal"])
+        # Draw signatures (scaled)
+        self.draw_image(c, faculty_signature_path, scale_meta(metadata["signatures"]["faculty_coordinator"]))
+        self.draw_image(c, principal_signature_path, scale_meta(metadata["signatures"]["principal"]))
 
         # Cleanup QR
         if os.path.exists(qr_path):

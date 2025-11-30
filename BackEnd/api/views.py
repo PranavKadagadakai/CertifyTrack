@@ -1611,10 +1611,21 @@ class EventViewSet(viewsets.ModelViewSet):
             elif hasattr(mentor.user, 'signature') and mentor.user.signature:
                 faculty_signature_path = path.join(settings.MEDIA_ROOT, str(mentor.user.signature))
 
-        # Try to get principal signature from admin/principal users
-        principal_user = User.objects.filter(user_type='principal').first() or User.objects.filter(user_type='admin').first()
-        if principal_user and principal_user.signature:
-            principal_signature_path = path.join(settings.MEDIA_ROOT, str(principal_user.signature))
+        # Try to get principal signature from PrincipalSignature model
+        active_principal_sig = PrincipalSignature.objects.filter(is_active=True).first()
+        if active_principal_sig and active_principal_sig.signature_image:
+            principal_signature_path = path.join(settings.MEDIA_ROOT, str(active_principal_sig.signature_image))
+
+        # Delete existing certificates for this event to enable re-generation
+        existing_certs = Certificate.objects.filter(event=event)
+        existing_count = existing_certs.count()
+        if existing_count > 0:
+            for cert in existing_certs:
+                # Delete the file from storage
+                if cert.file:
+                    cert.file.delete(save=False)
+            existing_certs.delete()
+            log_action(request.user, f"Deleted {existing_count} existing certificates for event: {event.name}")
 
         certificate_count = 0
         errors = []
@@ -1622,58 +1633,54 @@ class EventViewSet(viewsets.ModelViewSet):
         for attendance in attendees:
             student = attendance.student
             try:
-                # Create or get certificate record
-                certificate, created = Certificate.objects.get_or_create(
+                # Create new certificate record (force new since old ones deleted)
+                certificate = Certificate.objects.create(
                     event=event,
                     student=student,
-                    defaults={'issue_date': now()}
+                    issue_date=now()
                 )
 
-                if created or not certificate.file:
-                    # Generate certificate using CertificateGenerator
-                    generator = CertificateGenerator(template_path, metadata_path)
+                # Generate certificate using CertificateGenerator
+                generator = CertificateGenerator(template_path, metadata_path)
 
-                    # Generate QR code text
-                    qr_text = f"Certificate ID: {certificate.id}, Student: {student.usn}, Event: {event.id}"
+                # Generate QR code text
+                qr_text = f"Certificate ID: {certificate.id}, Student: {student.usn}, Event: {event.id}"
 
-                    # Generate certificate PDF
-                    pdf_buffer = generator.generate_certificate(
-                        template_type=template_type,
-                        student_name=student.user.get_full_name() or student.user.username,
-                        event_name=event.name,
-                        club_name=event.club.name if event.club else "",
-                        date=event.event_date.strftime("%d %B %Y"),
-                        usn=getattr(student, 'usn', 'N/A'),
-                        points=event.points_awarded if event.aicte_category else 0,
-                        qr_text=qr_text,
-                        faculty_signature_path=faculty_signature_path,
-                        principal_signature_path=principal_signature_path,
-                    )
+                # Generate certificate PDF
+                pdf_buffer = generator.generate_certificate(
+                    template_type=template_type,
+                    student_name=student.user.get_full_name() or student.user.username,
+                    event_name=event.name,
+                    club_name=event.club.name if event.club else "",
+                    date=event.event_date.strftime("%d %b %Y"),
+                    usn=getattr(student, 'usn', 'N/A'),
+                    points=event.points_awarded if event.aicte_category else 0,
+                    qr_text=qr_text,
+                    faculty_signature_path=faculty_signature_path,
+                    principal_signature_path=principal_signature_path,
+                )
 
-                    # Save PDF to certificate record with proper naming
-                    file_name = f"certificate_{certificate.id}.pdf"
-                    certificate.file.save(file_name, ContentFile(pdf_buffer.getvalue()), save=True)
+                # Save PDF to certificate record with proper naming
+                file_name = f"certificate_{certificate.id}.pdf"
+                certificate.file.save(file_name, ContentFile(pdf_buffer.getvalue()), save=True)
 
-                    # Generate hash for verification
-                    pdf_buffer.seek(0)
-                    file_hash = hashlib.sha256(pdf_buffer.read()).hexdigest()
-                    certificate.file_hash = file_hash
-                    certificate.save()
+                # Generate hash for verification
+                pdf_buffer.seek(0)
+                file_hash = hashlib.sha256(pdf_buffer.read()).hexdigest()
+                certificate.file_hash = file_hash
+                certificate.save()
 
-                    certificate_count += 1
+                certificate_count += 1
 
-                    # Create notifications for students
-                    Notification.objects.create(
-                        user=student.user,
-                        title="Certificate Generated",
-                        message=f"Your certificate for '{event.name}' has been generated successfully.",
-                        notification_type="certificate_generated",
-                        event=event,
-                        certificate=certificate
-                    )
-
-                else:
-                    certificate_count += 1  # Already exists, still count it
+                # Create notifications for students
+                Notification.objects.create(
+                    user=student.user,
+                    title="Certificate Generated",
+                    message=f"Your certificate for '{event.name}' has been generated successfully.",
+                    notification_type="certificate_generated",
+                    event=event,
+                    certificate=certificate
+                )
 
             except Exception as e:
                 errors.append(f"Student {student.user.username}: {str(e)}")
