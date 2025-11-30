@@ -1157,7 +1157,7 @@ class AdminReportingViewSet(viewsets.ViewSet):
     Admin system reporting and analytics.
     """
     permission_classes = [IsAdmin]
-    
+
     @action(detail=False, methods=['get'])
     def system_stats(self, request):
         """Get system-wide statistics"""
@@ -1177,6 +1177,111 @@ class AdminReportingViewSet(viewsets.ViewSet):
             }
         }
         return Response(stats, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'])
+    def aicte_compliance_report(self, request):
+        """Get AICTE compliance summary report"""
+        department = request.query_params.get('department')
+        semester = request.query_params.get('semester')
+
+        students_query = Student.objects.all()
+        if department:
+            students_query = students_query.filter(department=department)
+        if semester:
+            students_query = students_query.filter(semester=semester)
+
+        total_students = students_query.count()
+        regular_students = students_query.filter(admission_type='regular')
+        lateral_students = students_query.filter(admission_type='lateral')
+
+        # Calculate compliance stats
+        regular_completed = regular_students.filter(
+            total_aicte_points__gte=100
+        ).count()
+        regular_pending = regular_students.count() - regular_completed
+
+        lateral_completed = lateral_students.filter(
+            total_aicte_points__gte=75
+        ).count()
+        lateral_pending = lateral_students.count() - lateral_completed
+
+        # Overall statistics
+        total_points_awarded = AICTEPointTransaction.objects.filter(
+            status='APPROVED'
+        ).aggregate(total=Sum('points_allocated'))['total'] or 0
+
+        pending_approvals = AICTEPointTransaction.objects.filter(
+            status='PENDING'
+        ).count()
+
+        report = {
+            'summary': {
+                'total_students': total_students,
+                'total_points_awarded': total_points_awarded,
+                'pending_approvals': pending_approvals,
+                'overall_completion_rate': (
+                    ((regular_completed + lateral_completed) / total_students * 100)
+                    if total_students > 0 else 0
+                )
+            },
+            'regular_students': {
+                'total': regular_students.count(),
+                'required_points': 100,
+                'completed': regular_completed,
+                'pending': regular_pending,
+                'completion_rate': (
+                    (regular_completed / regular_students.count() * 100)
+                    if regular_students.count() > 0 else 0
+                )
+            },
+            'lateral_students': {
+                'total': lateral_students.count(),
+                'required_points': 75,
+                'completed': lateral_completed,
+                'pending': lateral_pending,
+                'completion_rate': (
+                    (lateral_completed / lateral_students.count() * 100)
+                    if lateral_students.count() > 0 else 0
+                )
+            },
+            'category_distribution': list(
+                AICTEPointTransaction.objects.filter(status='APPROVED')
+                .values('category__name')
+                .annotate(
+                    points_awarded=Sum('points_allocated'),
+                    transactions=Count('id'),
+                    students=Count('student', distinct=True)
+                )
+                .order_by('-points_awarded')
+            )[:10],  # Top 10 categories
+            'department_wise': list(
+                Student.objects.values('department')
+                .annotate(
+                    total_students=Count('id'),
+                    regular_students=Count(
+                        Q(admission_type='regular')
+                    ),
+                    lateral_students=Count(
+                        Q(admission_type='lateral')
+                    ),
+                    completed_regular=Count(
+                        Q(admission_type='regular', total_aicte_points__gte=100)
+                    ),
+                    completed_lateral=Count(
+                        Q(admission_type='lateral', total_aicte_points__gte=75)
+                    )
+                )
+                .annotate(
+                    completion_rate=(
+                        (F('completed_regular') + F('completed_lateral')) /
+                        F('total_students') * 100
+                    ).filter(total_students__gt=0)
+                )
+                .order_by('-completion_rate')
+            )
+        }
+
+        return Response(report, status=status.HTTP_200_OK)
     
     @action(detail=False, methods=['get'])
     def audit_logs(self, request):

@@ -30,32 +30,37 @@ BRANCH_DEPARTMENT_MAPPING = {v: k for k, v in DEPARTMENT_BRANCH_MAPPING.items()}
 
 def validate_usn_format(usn, department):
     """
-    Validate USN format: 2GI22{BRANCH}001 or 2GI22{BRANCH}L001 for lateral entry
-    Returns (is_valid, error_message)
+    Validate USN format: 2GI22{BRANCH}{NUMBER} where NUMBER >= 400 indicates lateral entry
+    Regular admission: 001-399, Lateral entry: 400+
+    Returns (is_valid, error_message, admission_type)
     """
     if not usn:
-        return False, "USN is required"
+        return False, "USN is required", None
 
     # Pattern: starts with any single digit (region), next 2 any chars (college),
-    # then 2 chars for branch, optionally L for lateral, then 3 digits
-    pattern = r'^\d[A-Z]\d{2}([A-Z]{2})(L?)(\d{3})$'
+    # then 2 chars for branch, then 3 digits (now determining admission type)
+    pattern = r'^\d[A-Z]\d{2}([A-Z]{2})(\d{3})$'
     match = re.match(pattern, usn.strip().upper())
 
     if not match:
-        return False, "Invalid USN format. Expected format: 2GI22XX001 or 2GI22XXL001 where XX is branch code"
+        return False, "Invalid USN format. Expected format: 2GI22XX001 where XX is branch code and last 3 digits are 001+", None
 
     branch_code = match.group(1)
-    has_lateral = match.group(2)
+    number_part = match.group(2)
+    number_int = int(number_part)
 
     # Check if branch code matches department
     expected_branch = DEPARTMENT_BRANCH_MAPPING.get(department)
     if not expected_branch:
-        return False, f"Unknown department: {department}"
+        return False, f"Unknown department: {department}", None
 
     if branch_code != expected_branch:
-        return False, f"USN branch code '{branch_code}' does not match selected department '{department}' (expected: {expected_branch})"
+        return False, f"USN branch code '{branch_code}' does not match selected department '{department}' (expected: {expected_branch})", None
 
-    return True, None
+    # Determine admission type based on number range
+    # Regular admission: 001-399, Lateral entry: 400+
+    admission_type = 'lateral' if number_int >= 400 else 'regular'
+    return True, None, admission_type
 
 
 def validate_employee_id_format(employee_id, department):
@@ -116,7 +121,7 @@ def get_branch_from_usn(usn):
     if not usn:
         return None
 
-    pattern = r'^\d[A-Z]\d{2}([A-Z]{2})(L?)(\d{3})$'
+    pattern = r'^\d[A-Z]\d{2}([A-Z]{2})(\d{3})$'
     match = re.match(pattern, usn.strip().upper())
 
     if match:
@@ -175,10 +180,16 @@ class User(AbstractUser):
 
 
 class Student(models.Model):
+    ADMISSION_TYPE_CHOICES = (
+        ('regular', 'Regular Student'),
+        ('lateral', 'Lateral Entry Student'),
+    )
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='student_profile')
     usn = models.CharField(max_length=20, unique=True)
     department = models.CharField(max_length=100)
     semester = models.IntegerField()
+    admission_type = models.CharField(max_length=10, choices=ADMISSION_TYPE_CHOICES, default='regular')
     phone_number = models.CharField(max_length=15, blank=True, null=True)
     date_of_birth = models.DateField(blank=True, null=True)
     address = models.TextField(blank=True, null=True)
@@ -195,6 +206,16 @@ class Student(models.Model):
     @property
     def total_aicte_points(self):
         return self.aicte_transactions.filter(status='APPROVED').aggregate(total=models.Sum('points_allocated'))['total'] or 0
+
+    @property
+    def required_aicte_points(self):
+        """Return point requirement based on admission type"""
+        return 100 if self.admission_type == 'regular' else 75
+
+    @property
+    def is_aicte_completed(self):
+        """Check if student has met AICTE point requirements"""
+        return self.total_aicte_points >= self.required_aicte_points
 
 
 class Mentor(models.Model):
@@ -526,7 +547,7 @@ class AICTECategory(models.Model):
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
     min_points_required = models.IntegerField(blank=True, null=True)
-    max_points_allowed = models.IntegerField(blank=True, null=True)
+    max_points_allowed = models.IntegerField(default=20, help_text="Maximum points that can be awarded (default 20 per VTU rules)")
 
     def clean(self):
         if (self.min_points_required is not None) and (self.max_points_allowed is not None):

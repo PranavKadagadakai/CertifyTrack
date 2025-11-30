@@ -25,7 +25,55 @@ class CertificateGenerator:
     def load_metadata(self):
         """Load JSON metadata (coordinates, font sizes, signature positions)"""
         with open(self.metadata_path, "r") as f:
-            return json.load(f)
+            content = f.read()
+
+        # Handle potential trailing data or comments in JSON files
+        # Try to parse the JSON, and if it fails with "Extra data" error,
+        # extract only the valid JSON portion
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError as e:
+            if "Extra data" in str(e):
+                # Try to extract valid JSON by finding the first complete object
+                try:
+                    # Find the end of the first valid JSON object by tracking braces
+                    brace_count = 0
+                    end_pos = 0
+                    in_string = False
+                    escape_next = False
+
+                    for i, char in enumerate(content):
+                        if escape_next:
+                            escape_next = False
+                            continue
+
+                        if char == '\\':
+                            escape_next = True
+                            continue
+
+                        if char == '"' and not escape_next:
+                            in_string = not in_string
+                            continue
+
+                        if not in_string:
+                            if char == '{':
+                                brace_count += 1
+                            elif char == '}':
+                                brace_count -= 1
+                                if brace_count == 0:
+                                    # Found the end of the first JSON object
+                                    end_pos = i + 1
+                                    break
+
+                    if end_pos > 0:
+                        valid_json = content[:end_pos]
+                        return json.loads(valid_json)
+                    else:
+                        raise e
+                except Exception:
+                    raise ValidationError(f"Invalid JSON metadata file: {self.metadata_path}")
+            else:
+                raise e
 
     def generate_qr_code(self, qr_text):
         """Generate QR code PNG in memory"""

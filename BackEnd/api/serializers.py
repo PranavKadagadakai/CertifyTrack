@@ -34,7 +34,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Student
         fields = [
-            'id', 'user', 'usn', 'department', 'semester', 
+            'id', 'user', 'usn', 'department', 'semester', 'admission_type',
             'phone_number', 'date_of_birth', 'address', 'profile_photo',
             'emergency_contact_name', 'emergency_contact_phone',
             'profile_completed', 'profile_completed_at', 'mentor_name'
@@ -84,7 +84,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         department = data.get("department") or (request.data.get("department") if request else None)
 
         if usn and department:
-            is_valid, error_msg = validate_usn_format(usn, department)
+            is_valid, error_msg, admission_type = validate_usn_format(usn, department)
             if not is_valid:
                 raise serializers.ValidationError({"usn": error_msg})
 
@@ -265,12 +265,13 @@ class ClubOrganizerProfileSerializer(serializers.ModelSerializer):
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
     password_confirm = serializers.CharField(write_only=True, min_length=8)
-    
+
     # Student-specific fields
     usn = serializers.CharField(required=False, allow_blank=True)
     semester = serializers.IntegerField(required=False)
     department = serializers.CharField(required=False, allow_blank=True)
-    
+    admission_type = serializers.ChoiceField(choices=Student.ADMISSION_TYPE_CHOICES, required=False)
+
     # Mentor-specific fields
     employee_id = serializers.CharField(required=False, allow_blank=True)
     designation = serializers.CharField(required=False, allow_blank=True)
@@ -368,11 +369,17 @@ class RegisterSerializer(serializers.ModelSerializer):
         
         # Create role-specific profile
         if user.user_type == 'student':
+            # Determine admission type from USN validation
+            admission_type = 'regular'  # Default
+            if usn and department:
+                _, _, admission_type = validate_usn_format(usn, department)
+
             Student.objects.create(
                 user=user,
                 usn=usn or '',
                 department=department or '',
-                semester=int(semester) if semester else 1
+                semester=int(semester) if semester else 1,
+                admission_type=admission_type
             )
         
         elif user.user_type == 'mentor':
@@ -393,11 +400,11 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 class StudentSerializer(serializers.ModelSerializer):
     user_details = UserSerializer(source='user', read_only=True)
-    
+
     class Meta:
         model = Student
         fields = [
-            "id", "user_details", "usn", "department", "semester", 
+            "id", "user_details", "usn", "department", "semester", "admission_type",
             "phone_number", "date_of_birth", "address", "profile_photo",
             "emergency_contact_name", "emergency_contact_phone"
         ]
@@ -498,6 +505,41 @@ class EventSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("End date must be after or equal to start date")
         if data.get('aicte_category') and not data.get('points_awarded'):
             raise serializers.ValidationError("Points awarded must be specified when AICTE category is selected")
+        # Validate minimum 80 hours for AICTE events (per VTU rules)
+        if data.get('aicte_category'):
+            # For multi-day events, validate total duration >= 80 hours
+            if data.get('end_date'):
+                # Multi-day event: calculate total hours
+                from datetime import datetime, timedelta
+                start_date = data.get('event_date')
+                end_date = data.get('end_date')
+                start_time = data.get('start_time', datetime.min.time())
+                end_time = data.get('end_time', datetime.min.time())
+
+                if start_date and end_date:
+                    days = (end_date - start_date).days + 1
+                    if days > 1:
+                        # Multi-day: assume 8 hours per day minimum
+                        if days < 10:  # 8 hours * 10 days = 80 hours minimum
+                            raise serializers.ValidationError("AICTE events must be at least 80 hours (10 days) in duration")
+                    else:
+                        # Single day event
+                        if start_time and end_time:
+                            duration = (end_time.hour * 3600 + end_time.minute * 60) - (start_time.hour * 3600 + start_time.minute * 60)
+                            if duration < 28800:  # 8 hours in seconds
+                                raise serializers.ValidationError("Single-day AICTE events must be at least 8 hours in duration")
+                        else:
+                            raise serializers.ValidationError("Start and end time required for AICTE events")
+            else:
+                # Single day event validation
+                start_time = data.get('start_time')
+                end_time = data.get('end_time')
+                if start_time and end_time:
+                    duration = (end_time.hour * 3600 + end_time.minute * 60) - (start_time.hour * 3600 + start_time.minute * 60)
+                    if duration < 28800:  # 8 hours minimum
+                        raise serializers.ValidationError("AICTE events must be at least 80 hours in duration. Single-day events require minimum 8 hours.")
+                else:
+                    raise serializers.ValidationError("Start and end time required for AICTE events")
         return data
 
 

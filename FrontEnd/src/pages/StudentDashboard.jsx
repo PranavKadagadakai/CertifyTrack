@@ -7,6 +7,7 @@ const StudentDashboard = () => {
   const [events, setEvents] = useState([]);
   const [certificates, setCertificates] = useState([]);
   const [points, setPoints] = useState(0);
+  const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -17,15 +18,17 @@ const StudentDashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const [statsRes, eventsRes, certRes] = await Promise.all([
+      const [statsRes, eventsRes, certRes, profileRes] = await Promise.all([
         api.get("/dashboard/stats/"),
         api.get("/events/"),
         api.get("/certificates/"),
+        api.get("/profile/"),
       ]);
 
       setStats(statsRes.data);
       setEvents(eventsRes.data);
       setCertificates(certRes.data);
+      setStudents(profileRes.data);
     } catch (err) {
       setError("Failed to load dashboard data");
       console.error(err);
@@ -72,11 +75,29 @@ const StudentDashboard = () => {
         <div className="mb-4 p-4 bg-red-100 text-red-700 rounded">{error}</div>
       )}
 
-      {stats && (
+      {stats && students && (
         <div className="grid grid-cols-4 gap-4 mb-6">
           <div className="bg-white p-6 rounded shadow">
-            <p className="text-gray-600">AICTE Points</p>
-            <p className="text-3xl font-bold text-blue-600">{points}</p>
+            <p className="text-gray-600">AICTE Points Progress</p>
+            <p className="text-3xl font-bold text-blue-600">
+              {points}/{students.required_aicte_points || 100}
+            </p>
+            <p className="text-sm text-gray-500 mt-1">
+              {students.admission_type === "regular"
+                ? "Regular Student (100 pts)"
+                : "Lateral Entry (75 pts)"}
+            </p>
+            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+              <div
+                className="bg-blue-600 h-2 rounded-full"
+                style={{
+                  width: `${Math.min(
+                    100,
+                    (points / (students.required_aicte_points || 100)) * 100
+                  )}%`,
+                }}
+              ></div>
+            </div>
           </div>
           <div className="bg-white p-6 rounded shadow">
             <p className="text-gray-600">Events Registered</p>
