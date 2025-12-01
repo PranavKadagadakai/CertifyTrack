@@ -268,8 +268,20 @@ class LoginView(generics.GenericAPIView):
         
         # Check email verification (skip for admin users)
         if not user.is_email_verified and user.user_type != 'admin':
+            # Generate new verification token and send email
+            import uuid
+            user.email_verification_token = str(uuid.uuid4())
+            user.verification_sent_at = now()
+            user.save()
+
+            try:
+                threading.Thread(target=send_verification_email, args=(user,)).start()
+                log_action(user, "Verification email sent during login attempt")
+            except Exception as e:
+                print(f"Error sending verification email: {e}")
+
             return Response(
-                {'error': 'Please verify your email before logging in.'},
+                {'error': 'Please verify your email before logging in. Verification email has been sent to your email address.'},
                 status=status.HTTP_403_FORBIDDEN
             )
         

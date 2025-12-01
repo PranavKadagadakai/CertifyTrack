@@ -60,6 +60,19 @@ const AuthProvider = ({ children }) => {
       navigate("/dashboard");
     } catch (err) {
       console.error("Login failed:", err);
+
+      // Check if it's a 403 error with verify email message
+      if (
+        err.response?.status === 403 &&
+        err.response?.data?.error?.toLowerCase().includes("verify") &&
+        err.response?.data?.error?.toLowerCase().includes("email")
+      ) {
+        // Redirect to email verification page for unverified email accounts
+        navigate("/verify-email");
+        return;
+      }
+
+      // Throw other errors for LoginPage to handle
       throw err;
     }
   };
@@ -81,7 +94,9 @@ const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, register, loading, refreshUser }}>
+    <AuthContext.Provider
+      value={{ user, login, logout, register, loading, refreshUser }}
+    >
       {children}
     </AuthContext.Provider>
   );
