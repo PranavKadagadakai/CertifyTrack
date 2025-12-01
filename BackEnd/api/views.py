@@ -489,9 +489,101 @@ class StudentViewSet(viewsets.ReadOnlyModelViewSet):
     Student list and details endpoint.
     - GET /api/students/ -> List all students (admin/mentor can see all)
     - GET /api/students/mentees -> List students assigned to current mentor
+    - GET /api/students/{id}/ -> Get detailed stats for a specific student (mentor can view mentees)
     """
     serializer_class = StudentSerializer
     permission_classes = [IsAuthenticated]
+
+    def retrieve(self, request, *args, **kwargs):
+        """Get detailed stats for a specific student"""
+        instance = self.get_object()
+
+        # Check permissions: only mentor of this student or admin can view details
+        user = request.user
+        if user.user_type == 'student' and instance.user != user:
+            raise PermissionDenied("Students can only view their own details.")
+        elif user.user_type == 'mentor':
+            mentor_profile = getattr(user, 'mentor_profile', None)
+            if not mentor_profile or instance.mentor != mentor_profile:
+                raise PermissionDenied("Mentors can only view their mentees' details.")
+        # Admin can view any student
+
+        # Get basic data from serializer
+        data = StudentSerializer(instance).data
+
+        # Add detailed stats
+        total_aicte_points = instance.total_aicte_points
+        required_points = instance.required_aicte_points
+        is_aicte_completed = instance.is_aicte_completed
+
+        # Events participated in (attended events)
+        participated_events = EventAttendance.objects.filter(
+            student=instance, is_present=True
+        ).select_related('event').values('event', 'event__name')
+
+        participated_count = len(participated_events)
+
+        # Events registered for (both attended and registered)
+        registered_events = EventRegistration.objects.filter(
+            student=instance
+        ).select_related('event').values('event', 'event__name')
+
+        registered_count = len(registered_events)
+
+        # Certificates earned
+        certificates = Certificate.objects.filter(student=instance).select_related('event')
+        certificates_count = certificates.count()
+        certificates_data = [
+            {
+                'id': cert.id,
+                'event_name': cert.event.name,
+                'issue_date': cert.issue_date,
+                'file_url': request.build_absolute_uri(cert.file.url) if cert.file else None
+            } for cert in certificates
+        ]
+
+        # Pending approvals
+        pending_transactions = AICTEPointTransaction.objects.filter(
+            student=instance, status='PENDING'
+        ).select_related('event', 'category')
+
+        pending_data = [
+            {
+                'id': tx.id,
+                'event_name': tx.event.name,
+                'points_allocated': tx.points_allocated,
+                'category_name': tx.category.name,
+                'certificate_url': request.build_absolute_uri(
+                    certificates.filter(event=tx.event).first().file.url
+                ) if certificates.filter(event=tx.event).exists() else None
+            } for tx in pending_transactions
+        ]
+
+        # Add detailed stats to response
+        data['detailed_stats'] = {
+            'aicte_points': {
+                'total_earned': total_aicte_points,
+                'required': required_points,
+                'is_completed': is_aicte_completed,
+                'progress_percentage': (total_aicte_points / required_points * 100) if required_points > 0 else 0
+            },
+            'events': {
+                'registered_count': registered_count,
+                'participated_count': participated_count,
+                'registered': [{'event_id': item['event'], 'event_name': item['event__name']} for item in registered_events],
+                'participated': [{'event_id': item['event'], 'event_name': item['event__name']} for item in participated_events]
+            },
+            'certificates': {
+                'count': certificates_count,
+                'list': certificates_data
+            },
+            'approvals': {
+                'pending_count': len(pending_data),
+                'pending_list': pending_data
+            }
+        }
+
+        return Response(data)
     
     def get_queryset(self):
         user = self.request.user
@@ -1654,11 +1746,14 @@ class EventViewSet(viewsets.ModelViewSet):
 
                 # allocate AICTE points in PENDING if present and event awards points
                 if is_present and event.aicte_category and event.points_awarded > 0:
+                    # Generate 8-character verification code with random alphanumeric characters
+                    verification_code = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(8))
                     AICTEPointTransaction.objects.create(
                         student=student,
                         event=event,
                         category=event.aicte_category,
                         points_allocated=event.points_awarded,
+                        verification_code=verification_code,
                         status='PENDING',
                         created_at=now()
                     )
@@ -1760,8 +1855,12 @@ class EventViewSet(viewsets.ModelViewSet):
                 # Generate certificate using CertificateGenerator
                 generator = CertificateGenerator(template_path, metadata_path)
 
-                # Generate QR code text
-                qr_text = f"Certificate ID: {certificate.id}, Student: {student.usn}, Event: {event.name}"
+                # Add verification code if there's an AICTE transaction for this student/event
+                transaction = AICTEPointTransaction.objects.filter(
+                    student=student, event=event
+                ).first()
+                code = transaction.verification_code if transaction and transaction.verification_code else 'N/A'
+                qr_text = f"Certificate ID: {certificate.id}, Student: {student.usn}, Event: {event.name}, Verification Code: {code}"
 
                 # Generate certificate PDF
                 pdf_buffer = generator.generate_certificate(
@@ -2129,30 +2228,60 @@ class AICTEPointTransactionViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
+        queryset = AICTEPointTransaction.objects.all()
+
+        # Apply user-type based filtering
         if user.user_type == 'student':
-            return AICTEPointTransaction.objects.filter(student__user=user)
+            queryset = queryset.filter(student__user=user)
         elif user.user_type == 'mentor':
             mentees = Student.objects.filter(mentor__user=user)
-            return AICTEPointTransaction.objects.filter(student__in=mentees)
+            queryset = queryset.filter(student__in=mentees)
         elif user.user_type == 'admin':
-            return AICTEPointTransaction.objects.all()
-        return AICTEPointTransaction.objects.none()
+            pass  # admin sees all
+        else:
+            return AICTEPointTransaction.objects.none()
+
+        # Apply status filtering from query parameters
+        status = self.request.query_params.get('status')
+        if status:
+            queryset = queryset.filter(status=status.upper())
+
+        return queryset
 
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
         """Mentor approval of AICTE points"""
         tx = self.get_object()
         mentor = getattr(request.user, 'mentor_profile', None)
-        
+
         if not mentor or tx.student.mentor != mentor:
             raise PermissionDenied("Only assigned mentor can approve points.")
-        
+
+        # Check verification code if provided
+        verification_code = request.data.get('verification_code')
+        if verification_code:
+            if not tx.verification_code:
+                return Response(
+                    {'error': 'No verification code is set for this transaction.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            if tx.verification_code.upper() != verification_code.strip().upper():
+                return Response(
+                    {'error': 'Invalid verification code. Please check the QR code on the certificate.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        elif tx.verification_code:
+            return Response(
+                {'error': 'Verification code is required to approve this transaction.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         tx.status = 'APPROVED'
         tx.approved_by = request.user
         tx.approval_date = now()
         tx.save()
         log_action(request.user, f"Approved AICTE transaction ID {tx.id}")
-        
+
         return Response({'message': 'Points approved successfully.'})
 
     @action(detail=True, methods=['post'])

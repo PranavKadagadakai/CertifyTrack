@@ -1,19 +1,20 @@
 import React, { useState, useEffect } from "react";
 import api from "../api";
 import EventCard from "../components/EventCard";
+import CertificateViewer from "../components/CertificateViewer";
 
 const StudentDashboard = () => {
   const [stats, setStats] = useState(null);
   const [events, setEvents] = useState([]);
   const [certificates, setCertificates] = useState([]);
-  const [points, setPoints] = useState(0);
+  // Points are now obtained directly from profile response
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [viewingCertificate, setViewingCertificate] = useState(null);
 
   useEffect(() => {
     fetchDashboardData();
-    fetchAICTEPoints();
   }, []);
 
   const fetchDashboardData = async () => {
@@ -37,22 +38,8 @@ const StudentDashboard = () => {
     }
   };
 
-  const fetchAICTEPoints = async () => {
-    try {
-      const res = await api.get("/aicte-transactions/");
-      const totalPoints = res.data.reduce((sum, tx) => {
-        if (tx.status === "APPROVED") return sum + (tx.points || 0);
-        return sum;
-      }, 0);
-      setPoints(totalPoints);
-    } catch (err) {
-      if (err.response?.status === 404) {
-        setPoints(0);
-      } else {
-        console.error(err);
-      }
-    }
-  };
+  // AICTE points are now fetched directly from profile in fetchDashboardData
+  // and retrieved from étudiants object which has the backend property
 
   const handleRegister = async (eventId) => {
     try {
@@ -63,6 +50,10 @@ const StudentDashboard = () => {
       setError(err.response?.data?.detail || "Registration failed");
       console.error(err);
     }
+  };
+
+  const openCertificateViewer = (certificateUrl) => {
+    setViewingCertificate(certificateUrl);
   };
 
   if (loading) return <div className="p-6">Loading...</div>;
@@ -80,7 +71,8 @@ const StudentDashboard = () => {
           <div className="bg-white p-6 rounded shadow">
             <p className="text-gray-600">AICTE Points Progress</p>
             <p className="text-3xl font-bold text-blue-600">
-              {points}/{students.required_aicte_points || 100}
+              {students.total_aicte_points || 0}/
+              {students.required_aicte_points || 100}
             </p>
             <p className="text-sm text-gray-500 mt-1">
               {students.admission_type === "regular"
@@ -93,7 +85,9 @@ const StudentDashboard = () => {
                 style={{
                   width: `${Math.min(
                     100,
-                    (points / (students.required_aicte_points || 100)) * 100
+                    ((students.total_aicte_points || 0) /
+                      (students.required_aicte_points || 100)) *
+                      100
                   )}%`,
                 }}
               ></div>
@@ -146,18 +140,34 @@ const StudentDashboard = () => {
                 <p className="text-sm text-gray-600">
                   Issued: {new Date(cert.issue_date).toLocaleDateString()}
                 </p>
-                <a
-                  href={cert.file}
-                  download
-                  className="mt-2 inline-block px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
-                >
-                  Download
-                </a>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                    onClick={() => openCertificateViewer(cert.file)}
+                  >
+                    View
+                  </button>
+                  <a
+                    href={cert.file}
+                    download
+                    className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                  >
+                    Download
+                  </a>
+                </div>
               </div>
             ))}
           </div>
         </div>
       </div>
+
+      {/* Certificate Viewer Modal */}
+      {viewingCertificate && (
+        <CertificateViewer
+          certificateUrl={viewingCertificate}
+          onClose={() => setViewingCertificate(null)}
+        />
+      )}
     </div>
   );
 };

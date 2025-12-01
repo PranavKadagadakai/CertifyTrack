@@ -30,6 +30,9 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer()
     mentor_name = serializers.SerializerMethodField(read_only=True)
     profile_photo = serializers.ImageField(required=False, allow_null=True, allow_empty_file=True)
+    total_aicte_points = serializers.SerializerMethodField(read_only=True)
+    required_aicte_points = serializers.SerializerMethodField(read_only=True)
+    is_aicte_completed = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Student
@@ -37,12 +40,22 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             'id', 'user', 'usn', 'department', 'semester', 'admission_type',
             'phone_number', 'date_of_birth', 'address', 'profile_photo',
             'emergency_contact_name', 'emergency_contact_phone',
-            'profile_completed', 'profile_completed_at', 'mentor_name'
+            'profile_completed', 'profile_completed_at', 'mentor_name',
+            'total_aicte_points', 'required_aicte_points', 'is_aicte_completed'
         ]
         read_only_fields = ['profile_completed_at']
 
     def get_mentor_name(self, obj):
         return obj.mentor.user.get_full_name() if obj.mentor else None
+
+    def get_total_aicte_points(self, obj):
+        return obj.total_aicte_points
+
+    def get_required_aicte_points(self, obj):
+        return obj.required_aicte_points
+
+    def get_is_aicte_completed(self, obj):
+        return obj.is_aicte_completed
     
     def to_internal_value(self, data):
         """
@@ -400,14 +413,19 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 class StudentSerializer(serializers.ModelSerializer):
     user_details = UserSerializer(source='user', read_only=True)
+    name = serializers.SerializerMethodField()
 
     class Meta:
         model = Student
         fields = [
-            "id", "user_details", "usn", "department", "semester", "admission_type",
+            "id", "user_details", "name", "usn", "department", "semester", "admission_type",
             "phone_number", "date_of_birth", "address", "profile_photo",
             "emergency_contact_name", "emergency_contact_phone"
         ]
+
+    def get_name(self, obj):
+        """Return full name as a single field for easier access"""
+        return obj.user.get_full_name() or obj.user.username
         
         
 class MentorSerializer(serializers.ModelSerializer):
@@ -618,14 +636,18 @@ class AICTECategorySerializer(serializers.ModelSerializer):
 
 class AICTEPointTransactionSerializer(serializers.ModelSerializer):
     student_usn = serializers.CharField(source='student.usn', read_only=True)
+    student_name = serializers.SerializerMethodField()
     event_name = serializers.CharField(source='event.name', read_only=True)
     category_name = serializers.CharField(source='category.name', read_only=True)
     approved_by_username = serializers.CharField(source='approved_by.username', read_only=True, allow_null=True)
+
+    def get_student_name(self, obj):
+        return obj.student.user.get_full_name() or obj.student.user.username
     
     class Meta:
         model = AICTEPointTransaction
         fields = [
-            'id', 'student', 'student_usn', 'event', 'event_name', 'category', 'category_name',
+            'id', 'student', 'student_name', 'student_usn', 'event', 'event_name', 'category', 'category_name',
             'points_allocated', 'status', 'approved_by', 'approved_by_username',
             'approval_date', 'rejection_reason', 'created_at', 'updated_at'
         ]

@@ -22,4 +22,39 @@ from django.conf.urls.static import static
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT, show_indexes=False)
+
+# Custom view to serve certificate files with framing allowed
+from django.http import HttpResponse
+from django.views.decorators.http import require_GET
+
+@require_GET
+def serve_certificate(request, path):
+    from django.conf import settings
+    from django.http import Http404
+    import os
+
+    # Only allow certificate files
+    if not path.startswith('certificates/'):
+        raise Http404("Access denied")
+
+    file_path = os.path.join(settings.MEDIA_ROOT, path)
+
+    # Security check
+    if not os.path.exists(file_path) or not os.path.isfile(file_path):
+        raise Http404("File not found")
+
+    try:
+        with open(file_path, 'rb') as f:
+            response = HttpResponse(f.read(), content_type='application/pdf')
+            # Explicitly allow framing for certificate previews
+            response['X-Frame-Options'] = 'ALLOWALL'
+            return response
+    except IOError:
+        raise Http404("File not readable")
+
+# Add custom URL pattern for certificates
+from django.urls import path
+urlpatterns += [
+    path('media/certificates/<path:path>', serve_certificate, name='serve_certificate'),
+]

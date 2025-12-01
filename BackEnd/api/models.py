@@ -563,11 +563,12 @@ class AICTEPointTransaction(models.Model):
         ('APPROVED', 'Approved'),
         ('REJECTED', 'Rejected'),
     )
-    
+
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='aicte_transactions')
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='aicte_transactions')
     category = models.ForeignKey(AICTECategory, on_delete=models.CASCADE, related_name='transactions')
     points_allocated = models.IntegerField()
+    verification_code = models.CharField(max_length=8, blank=True, null=True, help_text="8-character verification code for mentor approval")
     status = models.CharField(max_length=20, choices=TRANSACTION_STATUS_CHOICES, default='PENDING')
     approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_transactions')
     approval_date = models.DateTimeField(blank=True, null=True)
