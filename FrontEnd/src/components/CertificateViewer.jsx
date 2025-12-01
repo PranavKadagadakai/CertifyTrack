@@ -2,6 +2,7 @@ import React from "react";
 
 const CertificateViewer = ({ certificateUrl, onClose }) => {
   if (!certificateUrl) return null;
+  console.log("Viewing certificate:", certificateUrl);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

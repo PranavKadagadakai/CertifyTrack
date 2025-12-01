@@ -15,14 +15,9 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
-
-urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('api/', include('api.urls')),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT, show_indexes=False)
 
 # Custom view to serve certificate files with framing allowed
 from django.http import HttpResponse
@@ -34,11 +29,8 @@ def serve_certificate(request, path):
     from django.http import Http404
     import os
 
-    # Only allow certificate files
-    if not path.startswith('certificates/'):
-        raise Http404("Access denied")
-
-    file_path = os.path.join(settings.MEDIA_ROOT, path)
+    # Build the full path to the certificate file
+    file_path = os.path.join(settings.MEDIA_ROOT, 'certificates', path)
 
     # Security check
     if not os.path.exists(file_path) or not os.path.isfile(file_path):
@@ -53,8 +45,9 @@ def serve_certificate(request, path):
     except IOError:
         raise Http404("File not readable")
 
-# Add custom URL pattern for certificates
-from django.urls import path
-urlpatterns += [
-    path('media/certificates/<path:path>', serve_certificate, name='serve_certificate'),
-]
+urlpatterns = [
+    # Certificate serving URLs must come BEFORE static files
+    re_path(r'^media/certificates/(?P<path>.+)$', serve_certificate, name='serve_certificate'),
+    path('admin/', admin.site.urls),
+    path('api/', include('api.urls')),
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT, show_indexes=False)
