@@ -23,7 +23,7 @@ from .models import (
     ClubMember, ClubRole, EventAttendance, CertificateTemplate, PrincipalSignature
 )
 from .serializers import (
-    UserSerializer, RegisterSerializer, EventSerializer,
+    UserSerializer, RegisterSerializer, EventSerializer, StudentEventSerializer,
     CertificateSerializer, EventRegistrationSerializer, ClubSerializer,
     HallSerializer, HallBookingSerializer, AICTECategorySerializer, AICTEPointTransactionSerializer,
     NotificationSerializer, AuditLogSerializer, StudentSerializer, StudentProfileSerializer,
@@ -1501,6 +1501,13 @@ class EventViewSet(viewsets.ModelViewSet):
     serializer_class = EventSerializer
     permission_classes = [IsClubAdmin]
 
+    def get_serializer_class(self):
+        """Return StudentEventSerializer for students, EventSerializer for others"""
+        request = self.request
+        if request and hasattr(request.user, 'student_profile'):
+            return StudentEventSerializer
+        return EventSerializer
+
     def get_permissions(self):
         """
         Permissions:
@@ -1653,7 +1660,42 @@ class EventViewSet(viewsets.ModelViewSet):
             return Response({"message": "Already registered."})
 
         log_action(user, f"Registered for event {event.name}")
-        return Response({"message": "Registered successfully!"}, status=200)
+        return Response({"message": "Registered successfully!", "registration_status": "REGISTERED"}, status=200)
+
+    @action(detail=True, methods=['post'], url_path='cancel_registration')
+    def cancel_registration(self, request, pk=None):
+        """Students cancel their event registration"""
+        user = request.user
+
+        if user.user_type != 'student':
+            raise PermissionDenied("Only students can cancel registrations.")
+
+        event = self.get_object()
+
+        # fetch student profile
+        try:
+            student = user.student_profile
+        except:
+            return Response(
+                {"error": "Student profile not found."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # find and update registration
+        try:
+            registration = EventRegistration.objects.get(
+                event=event,
+                student=student
+            )
+            registration.status = 'CANCELLED'
+            registration.save()
+            log_action(user, f"Cancelled registration for event {event.name}")
+            return Response({"message": "Registration cancelled successfully!", "registration_status": "CANCELLED"}, status=200)
+        except EventRegistration.DoesNotExist:
+            return Response(
+                {"error": "No registration found for this event."},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
     @action(detail=True, methods=['post'], url_path='upload-attendance')
     def upload_attendance(self, request, pk=None):

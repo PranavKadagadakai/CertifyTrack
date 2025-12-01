@@ -43,11 +43,32 @@ const StudentDashboard = () => {
 
   const handleRegister = async (eventId) => {
     try {
-      await api.post(`/events/${eventId}/register/`);
-      alert("Registered successfully!");
+      const response = await api.post(`/events/${eventId}/register/`);
+      alert(response.data.message || "Registered successfully!");
       fetchDashboardData();
     } catch (err) {
       setError(err.response?.data?.detail || "Registration failed");
+      console.error(err);
+    }
+  };
+
+  const handleCancelRegistration = async (eventId) => {
+    if (
+      !window.confirm(
+        "Are you sure you want to cancel your registration for this event?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const response = await api.post(
+        `/events/${eventId}/cancel_registration/`
+      );
+      alert(response.data.message || "Registration cancelled successfully!");
+      fetchDashboardData();
+    } catch (err) {
+      setError(err.response?.data?.detail || "Cancellation failed");
       console.error(err);
     }
   };
@@ -114,49 +135,95 @@ const StudentDashboard = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 mb-6">
         <div className="bg-white p-6 rounded shadow">
           <h2 className="text-xl font-semibold mb-4">Available Events</h2>
-          <div className="space-y-3 max-h-96 overflow-y-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {events
-              .filter((e) => e.status === "scheduled")
-              .slice(0, 5)
+              .filter((e) => e.status === "scheduled" && !e.registration_status)
+              .slice(0, 6)
               .map((event) => (
                 <EventCard
                   key={event.id}
                   event={event}
                   onRegister={handleRegister}
+                  onCancelRegistration={handleCancelRegistration}
                 />
               ))}
+            {events.filter(
+              (e) => e.status === "scheduled" && !e.registration_status
+            ).length === 0 && (
+              <p className="col-span-full text-gray-500 text-center py-8">
+                No available events for registration at this time.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6">
+        <div className="bg-white p-6 rounded shadow">
+          <h2 className="text-xl font-semibold mb-4">My Registered Events</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {events
+              .filter(
+                (e) =>
+                  e.registration_status && e.registration_status !== "CANCELLED"
+              )
+              .slice(0, 6)
+              .map((event) => (
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  onRegister={handleRegister}
+                  onCancelRegistration={handleCancelRegistration}
+                />
+              ))}
+            {events.filter(
+              (e) =>
+                e.registration_status && e.registration_status !== "CANCELLED"
+            ).length === 0 && (
+              <p className="col-span-full text-gray-500 text-center py-8">
+                No registered events yet.
+              </p>
+            )}
           </div>
         </div>
 
         <div className="bg-white p-6 rounded shadow">
           <h2 className="text-xl font-semibold mb-4">Recent Certificates</h2>
-          <div className="space-y-3 max-h-96 overflow-y-auto">
-            {certificates.slice(0, 5).map((cert) => (
-              <div key={cert.id} className="p-4 border rounded">
-                <h3 className="font-bold">{cert.event_name}</h3>
-                <p className="text-sm text-gray-600">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {certificates.slice(0, 6).map((cert) => (
+              <div
+                key={cert.id}
+                className="p-4 border rounded bg-white hover:shadow-md transition-shadow"
+              >
+                <h3 className="font-bold text-lg">{cert.event_name}</h3>
+                <p className="text-sm text-gray-600 mb-2">
                   Issued: {new Date(cert.issue_date).toLocaleDateString()}
                 </p>
-                <div className="mt-2 flex gap-2">
+                <div className="flex gap-2">
                   <button
-                    className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                    className="px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex-1"
                     onClick={() => openCertificateViewer(cert.file)}
                   >
-                    View
+                    View Certificate
                   </button>
                   <a
                     href={cert.file}
                     download
-                    className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                    className="px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 flex-1 text-center"
                   >
                     Download
                   </a>
                 </div>
               </div>
             ))}
+            {certificates.length === 0 && (
+              <p className="col-span-full text-gray-500 text-center py-8">
+                No certificates earned yet.
+              </p>
+            )}
           </div>
         </div>
       </div>

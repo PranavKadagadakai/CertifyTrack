@@ -30,6 +30,8 @@ const NotificationsPage = () => {
     try {
       await api.post("/notifications/mark_all_read/");
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      // Notify other components (e.g., Navbar) about the update
+      window.dispatchEvent(new CustomEvent("notificationRead"));
     } catch (error) {
       console.error("Failed to mark notifications as read:", error);
     }
@@ -41,6 +43,8 @@ const NotificationsPage = () => {
       setNotifications((prev) =>
         prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
       );
+      // Notify other components (e.g., Navbar) about the update
+      window.dispatchEvent(new CustomEvent("notificationRead"));
     } catch (error) {
       console.error("Failed to mark notification as read:", error);
     }
@@ -158,6 +162,8 @@ const NotificationsPage = () => {
     try {
       await api.delete(`/notifications/${notificationId}/`);
       setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+      // Notify other components (e.g., Navbar) about the update
+      window.dispatchEvent(new CustomEvent("notificationRead"));
     } catch (error) {
       console.error("Failed to delete notification:", error);
     }

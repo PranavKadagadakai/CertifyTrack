@@ -15,10 +15,9 @@ const Navbar = () => {
 
   // Fetch unread notifications count and user club roles
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchNotifications = async () => {
       if (!user) return;
 
-      // Fetch notifications
       try {
         const response = await api.get("/notifications/");
         const notifications = Array.isArray(response.data) ? response.data : [];
@@ -27,6 +26,13 @@ const Navbar = () => {
       } catch (error) {
         console.error("Failed to fetch notifications count:", error);
       }
+    };
+
+    const fetchData = async () => {
+      if (!user) return;
+
+      // Fetch notifications
+      fetchNotifications();
 
       // Fetch clubs to check user's club roles based on their user type
       try {
@@ -65,6 +71,17 @@ const Navbar = () => {
     };
 
     fetchData();
+
+    // Listen for notification updates from other pages (e.g., NotificationsPage)
+    const handleNotificationUpdate = () => {
+      fetchNotifications();
+    };
+
+    window.addEventListener("notificationRead", handleNotificationUpdate);
+
+    return () => {
+      window.removeEventListener("notificationRead", handleNotificationUpdate);
+    };
   }, [user]);
 
   const handleBellClick = () => {
