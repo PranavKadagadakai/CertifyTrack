@@ -377,10 +377,12 @@ class Event(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     
     # AICTE Points Configuration
+    awardsAictePoints = models.BooleanField(default=False, help_text="Whether event awards AICTE points")
     aicte_category = models.ForeignKey('AICTECategory', on_delete=models.SET_NULL, null=True, blank=True, related_name='events')
     points_awarded = models.IntegerField(default=0, help_text="Points awarded per attendance")
     
     # Hall Assignment Fields
+    needsVenueCampus = models.BooleanField(default=False, help_text="Whether event requires college campus venue")
     primary_hall = models.ForeignKey(Hall, on_delete=models.SET_NULL, null=True, blank=True,
                                    related_name='primary_events', help_text="Preferred hall for the event")
     secondary_hall = models.ForeignKey(Hall, on_delete=models.SET_NULL, null=True, blank=True,

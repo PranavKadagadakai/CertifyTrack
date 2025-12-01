@@ -25,8 +25,10 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
     start_time: "",
     end_time: "",
     max_participants: "",
+    needsVenueCampus: false,
     primary_hall: "",
     secondary_hall: "",
+    awardsAictePoints: false,
     aicte_category: "",
     points_awarded: 0,
   });
@@ -101,8 +103,10 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
       start_time: "",
       end_time: "",
       max_participants: "",
+      needsVenueCampus: false,
       primary_hall: "",
       secondary_hall: "",
+      awardsAictePoints: false,
       aicte_category: "",
       points_awarded: 0,
     });
@@ -111,8 +115,11 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -128,19 +135,39 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
       return;
     }
 
-    if (formData.aicte_category && !formData.points_awarded) {
-      setError("Points awarded must be specified for AICTE events");
+    if (
+      formData.awardsAictePoints &&
+      (!formData.aicte_category || !formData.points_awarded)
+    ) {
+      setError(
+        "AICTE Category and Points Awarded are required when AICTE points are to be awarded"
+      );
       return;
+    }
+
+    // Create a copy of formData and clear fields based on checkboxes
+    const submitData = { ...formData };
+
+    // If need venue is false, clear hall fields
+    if (!formData.needsVenueCampus) {
+      submitData.primary_hall = "";
+      submitData.secondary_hall = "";
+    }
+
+    // If AICTE points is false, clear AICTE fields
+    if (!formData.awardsAictePoints) {
+      submitData.aicte_category = "";
+      submitData.points_awarded = 0;
     }
 
     setLoading(true);
     try {
       if (editingEvent) {
-        await api.patch(`/events/${editingEvent.id}/`, formData);
+        await api.patch(`/events/${editingEvent.id}/`, submitData);
         setSuccess("Event updated successfully!");
-        onEventUpdated?.(formData);
+        onEventUpdated?.(submitData);
       } else {
-        const response = await api.post("/events/", formData);
+        const response = await api.post("/events/", submitData);
         setSuccess("Event created successfully!");
         onEventCreated?.(response.data);
       }
@@ -158,6 +185,9 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
   };
 
   const handleEdit = (event) => {
+    const hasVenue = !!(event.primary_hall || event.secondary_hall);
+    const hasAicte = !!(event.aicte_category || event.points_awarded > 0);
+
     setFormData({
       name: event.name,
       description: event.description || "",
@@ -166,8 +196,10 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
       start_time: event.start_time,
       end_time: event.end_time || "",
       max_participants: event.max_participants || "",
+      needsVenueCampus: hasVenue,
       primary_hall: event.primary_hall || "",
       secondary_hall: event.secondary_hall || "",
+      awardsAictePoints: hasAicte,
       aicte_category: event.aicte_category || "",
       points_awarded: event.points_awarded || 0,
     });
@@ -369,24 +401,99 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
             />
           </div>
 
-          {/* Hall Selection Section */}
-          <div className="bg-gray-50 p-4 rounded border">
-            <h4 className="font-medium mb-3">Venue Selection</h4>
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="needsVenueCampus"
+              name="needsVenueCampus"
+              checked={formData.needsVenueCampus}
+              onChange={handleChange}
+            />
+            <label htmlFor="needsVenueCampus" className="text-sm font-medium">
+              Does this event need a venue in the college campus?
+            </label>
+          </div>
+
+          {/* Hall Selection Section - Only show if needsVenueCampus is true */}
+          {formData.needsVenueCampus && (
+            <div className="bg-gray-50 p-4 rounded border">
+              <h4 className="font-medium mb-3">Venue Selection</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm mb-1 font-medium">
+                    Primary Hall (Preferred)
+                  </label>
+                  <select
+                    name="primary_hall"
+                    value={formData.primary_hall}
+                    onChange={handleChange}
+                    className="w-full p-2 border rounded"
+                  >
+                    <option value="">Select Primary Hall</option>
+                    {availableHalls.map((hall) => (
+                      <option key={hall.id} value={hall.id}>
+                        {hall.name} (Capacity: {hall.capacity})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm mb-1 font-medium">
+                    Secondary Hall (Backup)
+                  </label>
+                  <select
+                    name="secondary_hall"
+                    value={formData.secondary_hall}
+                    onChange={handleChange}
+                    className="w-full p-2 border rounded"
+                  >
+                    <option value="">Select Secondary Hall</option>
+                    {availableHalls.map((hall) => (
+                      <option key={hall.id} value={hall.id}>
+                        {hall.name} (Capacity: {hall.capacity})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <p className="text-sm text-gray-500 mt-2">
+                System will automatically assign available halls when event is
+                scheduled.
+              </p>
+            </div>
+          )}
+
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="awardsAictePoints"
+              name="awardsAictePoints"
+              checked={formData.awardsAictePoints}
+              onChange={handleChange}
+            />
+            <label htmlFor="awardsAictePoints" className="text-sm font-medium">
+              Will AICTE points be awarded for this event?
+            </label>
+          </div>
+
+          {/* AICTE Points Section - Only show if awardsAictePoints is true */}
+          {formData.awardsAictePoints && (
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm mb-1 font-medium">
-                  Primary Hall (Preferred)
+                  AICTE Category *
                 </label>
                 <select
-                  name="primary_hall"
-                  value={formData.primary_hall}
+                  name="aicte_category"
+                  value={formData.aicte_category}
                   onChange={handleChange}
                   className="w-full p-2 border rounded"
                 >
-                  <option value="">Select Primary Hall</option>
-                  {availableHalls.map((hall) => (
-                    <option key={hall.id} value={hall.id}>
-                      {hall.name} (Capacity: {hall.capacity})
+                  <option value="">Select Category</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
                     </option>
                   ))}
                 </select>
@@ -394,63 +501,20 @@ const EventManagement = ({ clubId, onEventCreated, onEventUpdated }) => {
 
               <div>
                 <label className="block text-sm mb-1 font-medium">
-                  Secondary Hall (Backup)
+                  Points Awarded *
                 </label>
-                <select
-                  name="secondary_hall"
-                  value={formData.secondary_hall}
+                <input
+                  type="number"
+                  name="points_awarded"
+                  value={formData.points_awarded}
                   onChange={handleChange}
                   className="w-full p-2 border rounded"
-                >
-                  <option value="">Select Secondary Hall</option>
-                  {availableHalls.map((hall) => (
-                    <option key={hall.id} value={hall.id}>
-                      {hall.name} (Capacity: {hall.capacity})
-                    </option>
-                  ))}
-                </select>
+                  placeholder="0"
+                  min="0"
+                />
               </div>
             </div>
-            <p className="text-sm text-gray-500 mt-2">
-              System will automatically assign available halls when event is
-              scheduled.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm mb-1 font-medium">
-                AICTE Category
-              </label>
-              <select
-                name="aicte_category"
-                value={formData.aicte_category}
-                onChange={handleChange}
-                className="w-full p-2 border rounded"
-              >
-                <option value="">None</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm mb-1 font-medium">
-                Points Awarded
-              </label>
-              <input
-                type="number"
-                name="points_awarded"
-                value={formData.points_awarded}
-                onChange={handleChange}
-                className="w-full p-2 border rounded"
-                placeholder="0"
-              />
-            </div>
-          </div>
+          )}
 
           <button
             type="submit"

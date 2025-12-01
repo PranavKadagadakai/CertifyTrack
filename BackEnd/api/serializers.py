@@ -486,12 +486,13 @@ class EventSerializer(serializers.ModelSerializer):
     secondary_hall_name = serializers.CharField(source='secondary_hall.name', read_only=True, allow_null=True)
     assigned_hall_name = serializers.CharField(source='assigned_hall.name', read_only=True, allow_null=True)
     club = serializers.PrimaryKeyRelatedField(read_only=True)
-    
+
     class Meta:
         model = Event
         fields = [
             'id', 'club', 'name', 'description', 'event_date', 'end_date',
             'start_time', 'end_time', 'max_participants', 'status',
+            'needsVenueCampus', 'awardsAictePoints',
             'aicte_category', 'aicte_category_name', 'points_awarded',
             'primary_hall', 'primary_hall_name', 'secondary_hall', 'secondary_hall_name',
             'assigned_hall', 'assigned_hall_name', 'hall_assigned_at',
