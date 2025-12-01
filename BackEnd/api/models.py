@@ -171,7 +171,6 @@ class User(AbstractUser):
         ('mentor', 'Mentor'),
         ('club_organizer', 'Club Organizer'),
         ('admin', 'Admin'),
-        ('principal', 'Principal'),
     )
     user_type = models.CharField(max_length=20, choices=USER_TYPE_CHOICES, default='student')
     is_email_verified = models.BooleanField(default=False)
