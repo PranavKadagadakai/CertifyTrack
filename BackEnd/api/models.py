@@ -589,6 +589,7 @@ class AICTEPointTransaction(models.Model):
             models.Index(fields=['student', 'status']),
             models.Index(fields=['event', 'category']),
         ]
+        unique_together = ('student', 'event')
         ordering = ['-created_at']
 
     def clean(self):

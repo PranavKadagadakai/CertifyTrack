@@ -1748,16 +1748,22 @@ class EventViewSet(viewsets.ModelViewSet):
                 if is_present and event.aicte_category and event.points_awarded > 0:
                     # Generate 8-character verification code with random alphanumeric characters
                     verification_code = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(8))
-                    AICTEPointTransaction.objects.create(
+
+                    # Use get_or_create to prevent duplicate AICTE transactions for the same student-event
+                    transaction, created = AICTEPointTransaction.objects.get_or_create(
                         student=student,
                         event=event,
-                        category=event.aicte_category,
-                        points_allocated=event.points_awarded,
-                        verification_code=verification_code,
-                        status='PENDING',
-                        created_at=now()
+                        defaults={
+                            'category': event.aicte_category,
+                            'points_allocated': event.points_awarded,
+                            'verification_code': verification_code,
+                            'status': 'PENDING',
+                            'created_at': now()
+                        }
                     )
-                    points_created += 1
+
+                    if created:
+                        points_created += 1
 
                 # generate basic certificate placeholder (Certificate model may need file generation later)
                 if is_present:
