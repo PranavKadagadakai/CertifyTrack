@@ -16,12 +16,20 @@ DEPARTMENT_BRANCH_MAPPING = {
     'CSE': 'CS',
     'AIML': 'AI',
     'ISE': 'IS',
+    'Information Science Engineering': 'IS',
+    'IS': 'IS',
     'ECE': 'EC',
+    'Electrical and Electronics Engineering': 'EC',
     'EEE': 'EE',
+    'Electrical and Electronics Engineering': 'EE',
     'ME': 'ME',
+    'Mechanical Engineering': 'ME',
     'Civil': 'CV',
+    'Civil Engineering': 'CV',
     'Aero': 'AE',
-    'Arch': 'AR'
+    'Aerospace Engineering': 'AE',
+    'Arch': 'AR',
+    'Architecture': 'AR'
 }
 
 # Reverse mapping for validation
@@ -37,9 +45,9 @@ def validate_usn_format(usn, department):
     if not usn:
         return False, "USN is required", None
 
-    # Pattern: starts with any single digit (region), next 2 any chars (college),
-    # then 2 chars for branch, then 3 digits (now determining admission type)
-    pattern = r'^\d[A-Z]\d{2}([A-Z]{2})(\d{3})$'
+    # Pattern: 2GI22XXYYY format where XX is branch code, YYY is student number
+    # Examples: 2GI22IS035, 2GI22IS054, 2GI22IS038
+    pattern = r'^2GI22([A-Z]{2})(\d{3})$'
     match = re.match(pattern, usn.strip().upper())
 
     if not match:
@@ -121,7 +129,7 @@ def get_branch_from_usn(usn):
     if not usn:
         return None
 
-    pattern = r'^\d[A-Z]\d{2}([A-Z]{2})(\d{3})$'
+    pattern = r'^2GI22([A-Z]{2})(\d{3})$'
     match = re.match(pattern, usn.strip().upper())
 
     if match:

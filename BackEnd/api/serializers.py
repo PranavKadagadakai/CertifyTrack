@@ -293,7 +293,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'username', 'email', 'password', 'password_confirm', 'first_name', 'last_name',
-            'user_type', 'usn', 'semester', 'department', 'employee_id', 'designation'
+            'user_type', 'usn', 'semester', 'department', 'employee_id', 'designation', 'admission_type'
         ]
     
     def validate(self, data):
@@ -320,7 +320,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
             # Validate USN format and branch consistency
             if dept:
-                is_valid, error_msg = validate_usn_format(usn, dept)
+                is_valid, error_msg, _ = validate_usn_format(usn, dept)
                 if not is_valid:
                     raise serializers.ValidationError({"usn": error_msg})
 
