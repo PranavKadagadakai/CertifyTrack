@@ -32,7 +32,11 @@ from .serializers import (
     PrincipalSignatureSerializer
 )
 from .permissions import IsClubAdmin, IsStudent, IsMentor, IsAdmin
-from .email_utils import send_verification_email, send_password_reset_email, send_account_locked_email
+from .email_utils import (
+    send_verification_email, send_password_reset_email, send_account_locked_email,
+    send_event_registration_email, send_certificate_generation_email, send_points_decision_email,
+    send_hall_booking_decision_email, send_event_cancellation_email
+)
 from .certificate_generator import CertificateGenerator
 
 
@@ -349,31 +353,9 @@ class ProfileView(generics.RetrieveUpdateAPIView):
 
     def perform_update(self, serializer):
         """
-        Override perform_update to add logging and ensure user model updates are saved
+        Save the profile instance with nested user updates (handled by serializer.update())
         """
-        instance = self.get_object()
-
-        # Extract user data and profile data
-        user_data = {}
-        profile_data = {}
-
-        for key, value in serializer.validated_data.items():
-            if key.startswith('user.'):
-                user_data[key[5:]] = value  # Remove 'user.' prefix
-            else:
-                profile_data[key] = value
-                
-        # Update user model if user data was provided
-        if user_data:
-            user = getattr(instance, 'user', instance)
-            for attr, value in user_data.items():
-                setattr(user, attr, value)
-            user.save()
-
-        # Update profile model
-        for attr, value in profile_data.items():
-            setattr(instance, attr, value)
-        instance.save()
+        instance = serializer.save()
 
         # Check profile completion for profiles
         if hasattr(instance, 'profile_completed'):
@@ -1557,6 +1539,10 @@ class EventViewSet(viewsets.ModelViewSet):
         if event.status == 'scheduled' and hasattr(event, '_original_status') and event._original_status != 'scheduled':
             self._assign_hall_to_event(event)
 
+        # Check if status was changed to 'cancelled' - send cancellation emails
+        if event.status == 'cancelled' and hasattr(event, '_original_status') and event._original_status != 'cancelled':
+            self._send_cancellation_emails(event, reason=request.data.get('cancellation_reason', ''))
+
         log_action(user, f"Updated Event: {event.name}")
 
     def _assign_hall_to_event(self, event):
@@ -1601,6 +1587,23 @@ class EventViewSet(viewsets.ModelViewSet):
                 )
             log_action(event.created_by, f"Failed to assign hall to event {event.name} - no availability")
 
+
+    def _send_cancellation_emails(self, event, reason=''):
+        """
+        Send cancellation emails to all registered students for this event
+        """
+        registrations = EventRegistration.objects.filter(
+            event=event,
+            status__in=['REGISTERED', 'ATTENDED']
+        ).select_related('student__user')
+
+        for registration in registrations:
+            student = registration.student
+            try:
+                threading.Thread(target=send_event_cancellation_email,
+                                args=(student.user, event, reason)).start()
+            except Exception as e:
+                print(f"Error sending cancellation email to {student.user.email}: {e}")
 
     def retrieve(self, request, *args, **kwargs):
         """Override retrieve to set _original_status for comparison in update"""
@@ -1658,6 +1661,13 @@ class EventViewSet(viewsets.ModelViewSet):
 
         if not created:
             return Response({"message": "Already registered."})
+
+        # Send event registration confirmation email
+        try:
+            certificate_url = request.build_absolute_uri('/certificates')  # Placeholder for certificate download URL
+            threading.Thread(target=send_event_registration_email, args=(student.user, event, certificate_url)).start()
+        except Exception as e:
+            print(f"Error sending event registration email: {e}")
 
         log_action(user, f"Registered for event {event.name}")
         return Response({"message": "Registered successfully!", "registration_status": "REGISTERED"}, status=200)
@@ -1944,6 +1954,13 @@ class EventViewSet(viewsets.ModelViewSet):
                     notification_type="certificate_generated",
                     event=event
                 )
+
+                # Send certificate generation email
+                certificate_url = request.build_absolute_uri(certificate.file.url) if certificate.file else None
+                try:
+                    threading.Thread(target=send_certificate_generation_email, args=(student.user, event, certificate_url)).start()
+                except Exception as e:
+                    print(f"Error sending certificate generation email: {e}")
 
             except Exception as e:
                 errors.append(f"Student {student.user.username}: {str(e)}")
@@ -2328,6 +2345,13 @@ class AICTEPointTransactionViewSet(viewsets.ModelViewSet):
         tx.approved_by = request.user
         tx.approval_date = now()
         tx.save()
+
+        # Send AICTE points approval email
+        try:
+            threading.Thread(target=send_points_decision_email, args=(tx.student.user, tx.event, tx.points_allocated, 'approved')).start()
+        except Exception as e:
+            print(f"Error sending AICTE points approval email: {e}")
+
         log_action(request.user, f"Approved AICTE transaction ID {tx.id}")
 
         return Response({'message': 'Points approved successfully.'})
@@ -2346,8 +2370,15 @@ class AICTEPointTransactionViewSet(viewsets.ModelViewSet):
         tx.approved_by = request.user
         tx.approval_date = now()
         tx.save()
+
+        # Send AICTE points rejection email
+        try:
+            threading.Thread(target=send_points_decision_email, args=(tx.student.user, tx.event, tx.points_allocated, 'rejected', tx.rejection_reason)).start()
+        except Exception as e:
+            print(f"Error sending AICTE points rejection email: {e}")
+
         log_action(request.user, f"Rejected AICTE transaction ID {tx.id}")
-        
+
         return Response({'message': 'Points rejected.'})
 
 

@@ -38,6 +38,11 @@ function ProfilePage() {
       if (response.data.profile_photo) {
         setPhotoPreview(response.data.profile_photo);
       }
+
+      // Set signature preview if exists (for mentors)
+      if (response.data.signature) {
+        setSignaturePreview(response.data.signature);
+      }
     } catch (err) {
       console.error("Failed to fetch profile:", err);
       setError("Failed to load profile. Please refresh the page.");
@@ -66,6 +71,21 @@ function ProfilePage() {
     }
   };
 
+  const [mentorSignature, setMentorSignature] = useState(null);
+  const [signaturePreview, setSignaturePreview] = useState(null);
+
+  const handleSignatureChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setMentorSignature(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSignaturePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -74,9 +94,14 @@ function ProfilePage() {
 
     try {
       const submitData = new FormData();
+
+      // Define file fields that should be excluded from normal form data
+      const fileFields = ["profile_photo", "signature"];
+
       Object.keys(formData).forEach((key) => {
         const value = formData[key];
-        if (key !== "profile_photo") {
+        // Skip file fields - they'll be handled separately
+        if (!fileFields.includes(key)) {
           if (value !== null && value !== undefined && value !== "") {
             submitData.append(key, value);
           }
@@ -86,6 +111,11 @@ function ProfilePage() {
       // Only add profile_photo if a new file is selected
       if (profilePhoto instanceof File) {
         submitData.append("profile_photo", profilePhoto);
+      }
+
+      // Only add signature if a new file is selected (for mentors)
+      if (mentorSignature instanceof File) {
+        submitData.append("signature", mentorSignature);
       }
 
       const response = await api.patch("/profile/", submitData, {
@@ -100,8 +130,9 @@ function ProfilePage() {
       // Refresh user in context to update navbar profile photo
       refreshUser();
 
-      // Reset photo state
+      // Reset file states
       setProfilePhoto(null);
+      setMentorSignature(null);
 
       setTimeout(() => {
         setSuccess("");
@@ -294,6 +325,43 @@ function ProfilePage() {
                   </p>
                 </div>
               </div>
+
+              {/* Mentor Signature */}
+              {user.user_type === "mentor" && (
+                <div className="mt-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    Digital Signature
+                  </h3>
+                  <div className="flex items-center gap-6">
+                    {signaturePreview && (
+                      <img
+                        src={signaturePreview}
+                        alt="Signature preview"
+                        className="max-w-32 max-h-16 object-contain border-2 border-gray-300"
+                      />
+                    )}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Upload Signature
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleSignatureChange}
+                        className="block w-full text-sm text-gray-500
+                          file:mr-4 file:py-2 file:px-4
+                          file:rounded-md file:border-0
+                          file:text-sm file:font-semibold
+                          file:bg-blue-50 file:text-blue-700
+                          hover:file:bg-blue-100"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        JPG, PNG, GIF up to 5MB
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Role-Specific Profile Fields */}

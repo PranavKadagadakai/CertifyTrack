@@ -87,17 +87,15 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         user_data = data.get("user", {})
 
-        email = user_data.get("email") or (request.data.get("user", {}).get("email") if request and request.data else None)
-        if email:
-            is_valid, error_msg = validate_email_domain(email, 'student')
+        # Email validation - only if provided in data
+        if "email" in user_data and user_data["email"]:
+            is_valid, error_msg = validate_email_domain(user_data["email"], 'student')
             if not is_valid:
                 raise serializers.ValidationError({"email": error_msg})
 
-        usn = data.get("usn") or (request.data.get("usn") if request else None)
-        department = data.get("department") or (request.data.get("department") if request else None)
-
-        if usn and department:
-            is_valid, error_msg, admission_type = validate_usn_format(usn, department)
+        # USN validation - only if provided in data
+        if "usn" in data and "department" in data and data.get("department"):
+            is_valid, error_msg, admission_type = validate_usn_format(data["usn"], data["department"])
             if not is_valid:
                 raise serializers.ValidationError({"usn": error_msg})
 
@@ -111,6 +109,10 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         for attr, value in user_data.items():
             setattr(user, attr, value)
         user.save()
+
+        # Remove file fields that are None to prevent overwriting existing files
+        if "profile_photo" in validated_data and validated_data["profile_photo"] is None:
+            del validated_data["profile_photo"]
 
         # Update profile fields
         for attr, value in validated_data.items():
@@ -170,20 +172,17 @@ class MentorProfileSerializer(serializers.ModelSerializer):
         """
         Validate Employee ID format and branch consistency for profile updates
         """
-        request = self.context.get("request")
         user_data = data.get("user", {})
 
-        email = user_data.get("email") or (request.data.get("user", {}).get("email") if request and request.data else None)
-        if email:
-            is_valid, error_msg = validate_email_domain(email, 'mentor')
+        # Email validation - only if provided in data
+        if "email" in user_data and user_data["email"]:
+            is_valid, error_msg = validate_email_domain(user_data["email"], 'mentor')
             if not is_valid:
                 raise serializers.ValidationError({"email": error_msg})
 
-        employee_id = data.get("employee_id") or (request.data.get("employee_id") if request else None)
-        department = data.get("department") or (request.data.get("department") if request else None)
-
-        if employee_id and department:
-            is_valid, error_msg = validate_employee_id_format(employee_id, department)
+        # Employee ID validation - only if provided in data
+        if "employee_id" in data and "department" in data and data.get("department"):
+            is_valid, error_msg = validate_employee_id_format(data["employee_id"], data["department"])
             if not is_valid:
                 raise serializers.ValidationError({"employee_id": error_msg})
 
@@ -197,6 +196,12 @@ class MentorProfileSerializer(serializers.ModelSerializer):
         for attr, value in user_data.items():
             setattr(user, attr, value)
         user.save()
+
+        # Remove file fields that are None to prevent overwriting existing files
+        if "profile_photo" in validated_data and validated_data["profile_photo"] is None:
+            del validated_data["profile_photo"]
+        if "signature" in validated_data and validated_data["signature"] is None:
+            del validated_data["signature"]
 
         # Update profile fields
         for attr, value in validated_data.items():
