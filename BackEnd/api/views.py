@@ -1518,7 +1518,16 @@ class EventViewSet(viewsets.ModelViewSet):
         if hasattr(user, 'student_profile'):
             return Event.objects.filter(status='scheduled')
 
-        # organizers/admin see all
+        # club organizers see only their club's events
+        elif user.user_type == 'club_organizer':
+            club_organizer_profile = getattr(user, 'club_organizer_profile', None)
+            if club_organizer_profile and club_organizer_profile.club:
+                return Event.objects.filter(club=club_organizer_profile.club)
+            else:
+                # Return empty queryset if club organizer has no club assigned
+                return Event.objects.none()
+
+        # admins see all events
         return Event.objects.all()
 
     def perform_create(self, serializer):
@@ -2080,6 +2089,23 @@ class HallBookingViewSet(viewsets.ModelViewSet):
     queryset = HallBooking.objects.all().select_related('hall', 'event', 'booked_by')
     serializer_class = HallBookingSerializer
     permission_classes = [IsClubAdmin]  # creation by club organizers; admin endpoints checked below
+
+    def get_queryset(self):
+        user = self.request.user
+
+        # club organizers see only their club's hall bookings
+        if user.user_type == 'club_organizer':
+            club_organizer_profile = getattr(user, 'club_organizer_profile', None)
+            if club_organizer_profile and club_organizer_profile.club:
+                return HallBooking.objects.filter(
+                    event__club=club_organizer_profile.club
+                ).select_related('hall', 'event', 'booked_by')
+            else:
+                # Return empty queryset if club organizer has no club assigned
+                return HallBooking.objects.none()
+
+        # admins see all hall bookings
+        return HallBooking.objects.all().select_related('hall', 'event', 'booked_by')
 
     def get_permissions(self):
         # keep default but individual actions enforce role

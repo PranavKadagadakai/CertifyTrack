@@ -12,8 +12,8 @@ const ClubDashboard = () => {
   const fetchData = async () => {
     try {
       const [bookingsResponse, eventsResponse] = await Promise.all([
-        api.get("/hall-bookings/?club=true"),
-        api.get("/events/?club=true"),
+        api.get("/hall-bookings/"),
+        api.get("/events/"),
       ]);
       setBookings(bookingsResponse.data);
       setEvents(eventsResponse.data);
