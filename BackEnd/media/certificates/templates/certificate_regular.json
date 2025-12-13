@@ -1,0 +1,58 @@
+{
+  "canvas": {
+    "width": 2000,
+    "height": 1414
+  },
+  "placeholders": {
+    "student_name": {
+      "x": 900,
+      "y": 580,
+      "font_size": 48,
+      "font": "Helvetica-Bold"
+    },
+    "event_name": {
+      "x": 710,
+      "y": 505,
+      "font_size": 18,
+      "font": "Helvetica"
+    },
+    "club_name": {
+      "x": 1450,
+      "y": 505,
+      "font_size": 18,
+      "font": "Helvetica"
+    },
+    "date": {
+      "x": 300,
+      "y": 450,
+      "font_size": 18,
+      "font": "Helvetica"
+    },
+    "usn": {
+      "x": 600,
+      "y": 450,
+      "font_size": 18,
+      "font": "Helvetica"
+    }
+  },
+  "qrcode": {
+    "x": 880,
+    "y": 100,
+    "width": 260,
+    "height": 260
+  },
+  "signatures": {
+    "faculty_coordinator": {
+      "x": 320,
+      "y": 160,
+      "width": 360,
+      "height": 130
+    },
+    "principal": {
+      "x": 1330,
+      "y": 160,
+      "width": 360,
+      "height": 130
+    }
+  }
+}

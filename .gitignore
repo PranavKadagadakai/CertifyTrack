@@ -4,14 +4,15 @@ __pycache__/
 *.pyc
 db.sqlite3
 /staticfiles
-*/media/*
+!BackEnd/media/certificates/templates/
+/media/profile_photos/*
 */node_modules
 .DS_Store
 *.log
 .idea/
 .vscode/
 pranavkadagadakai-certifytrack.txt
-!CertifyTrack_SRSv2.1.md
+CertifyTrack_SRSv2.2.md
 certifytrack_schema.sql
 modularization_plan.md
 opencodetmp/
