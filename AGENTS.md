@@ -3,6 +3,8 @@
 ## Build/Lint/Test Commands
 
 ### Backend (Django, uv)
+- Install: `uv sync`
+- Migrate: `uv run manage.py makemigrations && uv run manage.py migrate`
 - All tests: `uv run manage.py test`
 - Single test: `uv run manage.py test api.tests.TestClass.test_method -v 2`
 - Coverage: `uv run coverage run --source='api' manage.py test && uv run coverage report`
@@ -30,7 +32,7 @@
 - Components: functional with hooks, PascalCase
 - Imports: React → third-party → local
 - State: useState/useEffect, no class components
-- Error handling: try/catch in async, user-friendly messages
+- Async: async/await with try/catch, user-friendly errors
 - Styling: Tailwind classes, mobile-first responsive
 - File org: one component per file
 
