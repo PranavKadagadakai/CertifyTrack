@@ -369,6 +369,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         employee_id = validated_data.pop('employee_id', None)
         designation = validated_data.pop('designation', None)
         department = validated_data.pop('department', None)
+        admission_type = validated_data.pop('admission_type', None)
         
         # Generate email verification token
         verification_token = secrets.token_urlsafe(32)

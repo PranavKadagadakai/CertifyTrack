@@ -80,6 +80,7 @@ class Command(BaseCommand):
                 name=category_data['name'],
                 defaults={
                     'description': category_data['description'],
+                    'min_points_required': 5,  # Minimum points required to qualify
                     'max_points_allowed': 20  # Per VTU rules, max 20 points per activity
                 }
             )

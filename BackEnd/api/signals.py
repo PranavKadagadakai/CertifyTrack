@@ -1,9 +1,16 @@
-from django.db.models.signals import pre_save, post_save
-from django.dispatch import receiver
-from django.core.exceptions import ValidationError
 import hashlib
 
-from .models import User, Certificate, AICTEPointTransaction, Notification, AuditLog
+from django.core.exceptions import ValidationError
+from django.db.models.signals import post_save, pre_save
+from django.dispatch import receiver
+
+from .models import (
+    AICTEPointTransaction,
+    AuditLog,
+    Certificate,
+    Notification,
+    User,
+)
 
 
 @receiver(pre_save, sender=Certificate)
@@ -19,13 +26,21 @@ def prevent_certificate_file_change(sender, instance, **kwargs):
     except sender.DoesNotExist:
         return
 
-    orig_has_file = bool(original.file and getattr(original.file, 'name', None))
-    new_has_file = bool(instance.file and getattr(instance.file, 'name', None))
+    orig_has_file = bool(
+        original.file and getattr(original.file, "name", None)
+    )
+    new_has_file = bool(instance.file and getattr(instance.file, "name", None))
 
     if orig_has_file and not new_has_file:
-        raise ValidationError("Certificate file cannot be removed once set (immutable).")
+        raise ValidationError(
+            "Certificate file cannot be removed once set (immutable)."
+        )
 
-    if orig_has_file and new_has_file and original.file.name != instance.file.name:
+    if (
+        orig_has_file
+        and new_has_file
+        and original.file.name != instance.file.name
+    ):
         raise ValidationError("Certificate file is immutable once set.")
 
 
@@ -37,7 +52,7 @@ def compute_certificate_hash(sender, instance, created, **kwargs):
     try:
         if instance.file and (not instance.file_hash):
             try:
-                with instance.file.open('rb') as f:
+                with instance.file.open("rb") as f:
                     data = f.read()
             except Exception:
                 return
@@ -60,7 +75,9 @@ def notify_on_transaction_status_change(sender, instance, created, **kwargs):
     message = f"Your AICTE points for event '{instance.event.name}' (category: {instance.category.name}) are now: {status}. Allocated points: {instance.points_allocated}."
 
     Notification.objects.create(user=user, title=title, message=message)
-    AuditLog.objects.create(user=user, action=f"AICTE transaction {instance.id} status {status}")
+    AuditLog.objects.create(
+        user=user, action=f"AICTE transaction {instance.id} status {status}"
+    )
 
 
 @receiver(post_save, sender=User)
@@ -68,5 +85,5 @@ def set_admin_user_type(sender, instance, created, **kwargs):
     """
     Automatically set user_type to 'admin' for superusers.
     """
-    if instance.is_superuser and instance.user_type != 'admin':
-        User.objects.filter(pk=instance.pk).update(user_type='admin')
+    if instance.is_superuser and instance.user_type != "admin":
+        User.objects.filter(pk=instance.pk).update(user_type="admin")
