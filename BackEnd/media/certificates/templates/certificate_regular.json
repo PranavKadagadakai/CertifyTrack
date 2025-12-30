@@ -5,32 +5,32 @@
   },
   "placeholders": {
     "student_name": {
-      "x": 900,
-      "y": 580,
+      "x": 680,
+      "y": 600,
       "font_size": 48,
       "font": "Helvetica-Bold"
     },
     "event_name": {
       "x": 710,
-      "y": 505,
+      "y": 540,
       "font_size": 18,
       "font": "Helvetica"
     },
     "club_name": {
-      "x": 1450,
-      "y": 505,
+      "x": 410,
+      "y": 490,
       "font_size": 18,
       "font": "Helvetica"
     },
     "date": {
-      "x": 300,
-      "y": 450,
+      "x": 980,
+      "y": 490,
       "font_size": 18,
       "font": "Helvetica"
     },
     "usn": {
-      "x": 600,
-      "y": 450,
+      "x": 1400,
+      "y": 490,
       "font_size": 18,
       "font": "Helvetica"
     }

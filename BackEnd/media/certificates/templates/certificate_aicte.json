@@ -5,58 +5,58 @@
   },
   "placeholders": {
     "student_name": {
-      "x": 1050,
-      "y": 735,
+      "x": 680,
+      "y": 600,
       "font_size": 48,
       "font": "Helvetica-Bold"
     },
     "event_name": {
-      "x": 700,
-      "y": 820,
-      "font_size": 34,
+      "x": 710,
+      "y": 540,
+      "font_size": 18,
       "font": "Helvetica"
     },
     "club_name": {
-      "x": 1220,
-      "y": 820,
-      "font_size": 34,
+      "x": 410,
+      "y": 485,
+      "font_size": 18,
       "font": "Helvetica"
     },
     "date": {
-      "x": 1580,
-      "y": 820,
-      "font_size": 34,
+      "x": 980,
+      "y": 485,
+      "font_size": 18,
       "font": "Helvetica"
     },
     "usn": {
-      "x": 700,
-      "y": 875,
-      "font_size": 34,
+      "x": 1400,
+      "y": 485,
+      "font_size": 18,
       "font": "Helvetica"
     },
     "points": {
-      "x": 1320,
-      "y": 930,
-      "font_size": 36,
+      "x": 1200,
+      "y": 370,
+      "font_size": 18,
       "font": "Helvetica-Bold"
     }
   },
   "qrcode": {
-    "x": 930,
-    "y": 1030,
+    "x": 880,
+    "y": 100,
     "width": 260,
     "height": 260
   },
   "signatures": {
     "faculty_coordinator": {
-      "x": 330,
-      "y": 1060,
+      "x": 320,
+      "y": 160,
       "width": 360,
       "height": 130
     },
     "principal": {
-      "x": 1310,
-      "y": 1060,
+      "x": 1330,
+      "y": 160,
       "width": 360,
       "height": 130
     }
